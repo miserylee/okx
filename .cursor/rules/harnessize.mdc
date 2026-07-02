@@ -1,0 +1,11 @@
+---
+description: "Route Cursor Agent to the repository harness guidance in AGENTS.md."
+alwaysApply: true
+---
+
+# Harnessize Adapter
+
+Read and follow @AGENTS.md before repository work.
+
+Keep durable harness guidance in AGENTS.md. This rule is only an adapter so the repository has one
+source of truth.
