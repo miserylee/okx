@@ -124,6 +124,7 @@ data such as pid, port, URL, state, and heartbeat.
 Initial command set:
 
 ```bash
+okx context
 okx init --name <ai-trader-name>
 okx daemon start
 okx daemon stop
@@ -136,6 +137,16 @@ okx daemon resume --reason "..."
 
 No `endpoint` command is needed in v1. Strategy scripts should normally use the Node SDK for
 discovery.
+
+`okx context` prints the built-in AI trader operating manual. This replaces the need to install a
+separate Codex skill for normal workspace operation. Agents should use the context command as their
+first durable reference inside a trading workspace.
+
+`okx init --name <ai-trader-name>` also creates or updates:
+
+- `AGENTS.md`, with a short bootstrap instruction telling future agents to run
+  `npm run okx -- context`
+- `package.json`, with an `okx` npm script and an `okx-trader` dependency
 
 ## Daemon API
 
@@ -200,7 +211,7 @@ Each event should include:
 Strategy scripts connect with session-level context:
 
 ```js
-import { connectOkxDaemon } from "@okx-ai-trader/sdk"
+import { connectOkxDaemon } from "okx-trader"
 
 const okx = await connectOkxDaemon("btc-runner-01", {
   env: "sandbox",
@@ -307,5 +318,9 @@ The OKX skill should provide:
 - audit review and handoff templates
 - sandbox-to-live operational guidance
 
-The skill should not provide a strategy runtime. AI traders run their own scripts in their own
+For v1 packaging, these materials should primarily live in the `okx context` CLI output so agents
+can bootstrap from a normal npm dependency without installing a separate skill. The package should
+publish the CLI and SDK together under one npm package, `okx-trader`.
+
+The package should not provide a strategy runtime. AI traders run their own scripts in their own
 workspace.

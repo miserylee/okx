@@ -260,3 +260,63 @@
 - Decisions: Create a durable v1 architecture spec.
 - Open questions: details may be refined during implementation, but the high-level architecture is
   ready to document.
+
+## Turn 19 - CLI Context and NPM Package Shape - 2026-07-03 02:39 +08:00
+
+- User signal: Move the operating manual into a CLI `context` command so agents can bootstrap from
+  a one-line workspace instruction without installing a separate skill. After `init`, write basic
+  guidance into `AGENTS.md` that points agents back to the CLI. Publish SDK and CLI in the same npm
+  package, with CLI invokable through `npm run`. Probe npm package name availability.
+- Agent work: Checked npm registry availability for candidate names and selected `okx-ai-trader`
+  as the first package name because it was available and matches the AI trader concept. Planned the
+  package as one npm dependency exposing both CLI bins and the Node SDK export.
+- Sources: conversation; npm registry checks via `npm view`.
+- Decisions: Add `okx context`; `okx init` creates or updates `AGENTS.md` and `package.json`;
+  publish CLI and SDK together; recommend workspace scripts call `npm run okx -- ...`.
+- Open questions: actual npm publish still requires npm account/auth and explicit publish timing.
+
+## Turn 20 - Rename Package Candidate to okx-trader - 2026-07-03 02:43 +08:00
+
+- User signal: Asked whether `okx-trader` is acceptable as the package name.
+- Agent work: Checked npm registry availability for `okx-trader`; npm returned 404, so the name is
+  currently available. Updated package metadata, CLI context, init-generated dependency, docs, and
+  mock story expectations from `okx-ai-trader` to `okx-trader`.
+- Sources: conversation; npm registry check via `npm view okx-trader`.
+- Decisions: Use package name `okx-trader`.
+- Open questions: actual npm publish still requires npm account/auth and explicit publish timing.
+
+## Turn 21 - GitHub Action for npm Publish - 2026-07-03 02:47 +08:00
+
+- User signal: Add a GitHub Action for publishing.
+- Agent work: Added a manual `Publish npm package` workflow that installs dependencies, checks all
+  `.mjs` files, runs the mock story, verifies `npm pack --dry-run`, and publishes only when the
+  `publish` workflow input is true.
+- Sources: conversation; repository package metadata.
+- Decisions: Initially considered token-based publishing; keep publish manual via
+  `workflow_dispatch`; run validation before `npm publish --access public`.
+- Open questions: token-based publishing was superseded by the trusted publishing decision in
+  Turn 22.
+
+## Turn 22 - Switch Publishing to npm Trusted Publishing - 2026-07-03 02:49 +08:00
+
+- User signal: Use trust.
+- Agent work: Switched the GitHub Action from token-based npm publishing to npm Trusted Publishing
+  through GitHub Actions OIDC. Added `id-token: write`, removed long-lived token usage, raised the
+  workflow Node version, and documented the npm trusted publisher setup.
+- Sources: conversation; npm Trusted Publishing docs.
+- Decisions: Use trusted publishing, not a long-lived npm token; publish remains manually triggered
+  by `workflow_dispatch`.
+- Open questions: npmjs.com still needs the trusted publisher entry for `miserylee/okx` and
+  workflow filename `publish-npm.yml`.
+
+## Turn 23 - Publish on Version Tag Push - 2026-07-03 02:58 +08:00
+
+- User signal: npm trusted publishing has been configured; push code to trigger one version
+  release.
+- Agent work: Updated the publish workflow so pushing a `v*` tag automatically publishes through
+  trusted publishing, while keeping the manual workflow option. Adjusted the mock story cleanup so
+  it only removes its own temporary workspace/home directories.
+- Sources: conversation; local workflow implementation.
+- Decisions: Use `v*` tags as the automatic release trigger; publish `okx-trader@0.1.0` with
+  `v0.1.0`.
+- Open questions: GitHub Actions result must be checked after pushing the tag.

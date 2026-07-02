@@ -1,9 +1,36 @@
 {
-  "name": "okx-automation",
+  "name": "okx-trader",
   "version": "0.1.0",
-  "private": true,
+  "description": "OKX AI trader daemon, CLI, and Node SDK.",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/miserylee/okx.git"
+  },
   "type": "module",
+  "bin": {
+    "okx-trader": "./bin/okx.mjs",
+    "okx": "./bin/okx.mjs"
+  },
+  "exports": {
+    ".": "./src/sdk/client.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "docs/architecture-v1.md",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
+    "check:mjs": "node scripts/check-mjs.mjs",
+    "okx": "node bin/okx.mjs",
+    "mock:story": "node mock/story.mjs",
     "smoke:okx": "node scripts/smoke-okx.mjs"
   },
   "dependencies": {

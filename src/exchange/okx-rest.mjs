@@ -1,0 +1,177 @@
+import crypto from "node:crypto";
+import { credentialPath } from "../lib/config.mjs";
+import { parseEnvFile } from "../lib/env.mjs";
+import { configureUndiciProxy } from "../lib/proxy.mjs";
+
+const DEFAULT_REST_BASE_URL = "https://www.okx.com";
+
+export class OkxRestExchange {
+  constructor({ workspace, config }) {
+    this.workspace = workspace;
+    this.config = config;
+    this.baseUrl = process.env.OKX_REST_BASE_URL || DEFAULT_REST_BASE_URL;
+    configureUndiciProxy();
+  }
+
+  async ticker({ env, instId }) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/market/ticker",
+      query: { instId },
+      privateRequest: false,
+    }).then((payload) => payload.data?.[0] || null);
+  }
+
+  async candles({ env, instId, bar = "1m", limit = 100 }) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/market/candles",
+      query: { instId, bar, limit },
+      privateRequest: false,
+    }).then((payload) => payload.data || []);
+  }
+
+  async balance({ env }) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/account/balance",
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || null);
+  }
+
+  async openOrders({ env, instType = "SPOT", instId } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/trade/orders-pending",
+      query: { instType, instId },
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
+  }
+
+  async placeOrder({ env, ...order }) {
+    const body = {
+      tdMode: order.tdMode || "cash",
+      ...order,
+    };
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/order",
+      body,
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || null);
+  }
+
+  async cancelOrder({ env, ...order }) {
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/cancel-order",
+      body: order,
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || null);
+  }
+
+  async okxGet(options) {
+    return this.okxRequest({ ...options, method: "GET" });
+  }
+
+  async okxRequest({ env, method, pathname, query = {}, body, privateRequest }) {
+    const requestPath = buildRequestPath(pathname, query);
+    const bodyText = body ? JSON.stringify(body) : "";
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (env === "sandbox") {
+      headers["x-simulated-trading"] = "1";
+    }
+
+    if (privateRequest) {
+      const credentials = this.loadCredentials(env);
+      Object.assign(
+        headers,
+        restHeaders({
+          credentials,
+          method,
+          requestPath,
+          body: bodyText,
+        }),
+      );
+    }
+
+    const response = await fetch(`${trimTrailingSlash(this.baseUrl)}${requestPath}`, {
+      method,
+      headers,
+      body: bodyText || undefined,
+    });
+    const text = await response.text();
+    let payload;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      throw new Error(`OKX ${requestPath} returned non-JSON response: ${text}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(`OKX ${requestPath} HTTP ${response.status}: ${text}`);
+    }
+    if (payload.code !== "0") {
+      throw new Error(`OKX ${requestPath} code ${payload.code}: ${payload.msg || ""}`);
+    }
+    return payload;
+  }
+
+  loadCredentials(env) {
+    const filePath = credentialPath(this.workspace, this.config, env);
+    const fileEnv = parseEnvFile(filePath);
+    const merged = { ...fileEnv, ...process.env };
+    const apiKey = merged.OKX_API_KEY?.trim();
+    const secretKey = merged.OKX_SECRET_KEY?.trim();
+    const passphrase = merged.OKX_PASSPHRASE?.trim();
+    const missing = [];
+    if (!apiKey) missing.push("OKX_API_KEY");
+    if (!secretKey) missing.push("OKX_SECRET_KEY");
+    if (!passphrase) missing.push("OKX_PASSPHRASE");
+    if (missing.length > 0) {
+      throw new Error(`Missing credentials in ${filePath}: ${missing.join(", ")}`);
+    }
+    return { apiKey, secretKey, passphrase };
+  }
+}
+
+function restHeaders({ credentials, method, requestPath, body }) {
+  const timestamp = new Date().toISOString();
+  return {
+    "OK-ACCESS-KEY": credentials.apiKey,
+    "OK-ACCESS-SIGN": sign({
+      timestamp,
+      method,
+      requestPath,
+      body,
+      secretKey: credentials.secretKey,
+    }),
+    "OK-ACCESS-TIMESTAMP": timestamp,
+    "OK-ACCESS-PASSPHRASE": credentials.passphrase,
+  };
+}
+
+function sign({ timestamp, method, requestPath, body = "", secretKey }) {
+  return crypto
+    .createHmac("sha256", secretKey)
+    .update(`${timestamp}${method.toUpperCase()}${requestPath}${body}`)
+    .digest("base64");
+}
+
+function buildRequestPath(pathname, query = {}) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value != null && value !== "") search.set(key, String(value));
+  }
+  const queryString = search.toString();
+  return queryString ? `${pathname}?${queryString}` : pathname;
+}
+
+function trimTrailingSlash(value) {
+  return value.replace(/\/+$/, "");
+}
