@@ -22,6 +22,13 @@ fs.mkdirSync(workspace, { recursive: true });
 process.env.OKX_HOME = okxHome;
 
 try {
+  const initHelp = runCli(["init", "--help"], { silent: true });
+  assert.match(initHelp, /okx init --name <ai-trader-name>/);
+  assert.doesNotMatch(initHelp, /requires --name/);
+
+  const daemonHelp = runCli(["daemon", "--help"], { silent: true });
+  assert.match(daemonHelp, /okx daemon start/);
+
   runCli(["init", "--name", traderName]);
   assertWorkspaceBootstrapFiles();
   configureMockExchange();
@@ -153,7 +160,7 @@ function configureMockExchange() {
 function assertWorkspaceBootstrapFiles() {
   const packageJson = JSON.parse(fs.readFileSync(path.join(workspace, "package.json"), "utf8"));
   assert.equal(packageJson.scripts.okx, "okx");
-  assert.equal(packageJson.dependencies["okx-trader"], "^0.1.0");
+  assert.equal(packageJson.dependencies["okx-trader"], "^0.1.1");
 
   const agents = fs.readFileSync(path.join(workspace, "AGENTS.md"), "utf8");
   assert.match(agents, /npm run okx -- context/);

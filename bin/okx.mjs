@@ -23,7 +23,12 @@ async function main() {
   }
 
   if (command === "init") {
-    await initWorkspace(parseOptions([subcommand, ...rest].filter(Boolean)));
+    const options = parseOptions([subcommand, ...rest].filter(Boolean));
+    if (options.help) {
+      printInitHelp();
+      return;
+    }
+    await initWorkspace(options);
     return;
   }
 
@@ -33,7 +38,12 @@ async function main() {
   }
 
   if (command === "daemon") {
-    await daemonCommand(subcommand, parseOptions(rest));
+    const options = parseOptions(rest);
+    if (!subcommand || subcommand === "--help" || subcommand === "-h" || options.help) {
+      printDaemonHelp();
+      return;
+    }
+    await daemonCommand(subcommand, options);
     return;
   }
 
@@ -251,10 +261,18 @@ function parseOptions(args) {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (!arg) continue;
+    if (arg === "--help" || arg === "-h") {
+      options.help = true;
+      continue;
+    }
     if (arg.startsWith("--")) {
       const [key, inlineValue] = arg.slice(2).split("=", 2);
-      const value = inlineValue ?? args[index + 1];
-      if (inlineValue == null) index += 1;
+      let value = inlineValue;
+      if (value == null && args[index + 1] && !args[index + 1].startsWith("-")) {
+        value = args[index + 1];
+        index += 1;
+      }
+      if (value == null) value = true;
       options[toCamelCase(key)] = value;
     }
   }
@@ -294,7 +312,7 @@ function updatePackageJson(workspace) {
     },
     dependencies: {
       ...(existing.dependencies || {}),
-      [PACKAGE_NAME]: existing.dependencies?.[PACKAGE_NAME] || "^0.1.0",
+      [PACKAGE_NAME]: existing.dependencies?.[PACKAGE_NAME] || "^0.1.1",
     },
   };
   fs.writeFileSync(filePath, `${JSON.stringify(next, null, 2)}\n`);
@@ -382,6 +400,38 @@ Usage:
 
 Options:
   --workspace <path>  Use a workspace other than the current directory.
+`);
+}
+
+function printInitHelp() {
+  console.log(`Initialize an OKX AI trader workspace
+
+Usage:
+  okx init --name <ai-trader-name> [--workspace <path>]
+
+Options:
+  --name <name>       AI trader identity for this workspace.
+  --workspace <path>  Workspace directory. Defaults to the current directory.
+  -h, --help          Show this help.
+`);
+}
+
+function printDaemonHelp() {
+  console.log(`Manage the OKX AI trader daemon
+
+Usage:
+  okx daemon start [--workspace <path>]
+  okx daemon stop [--workspace <path>]
+  okx daemon restart [--workspace <path>]
+  okx daemon status [--workspace <path>]
+  okx daemon doctor [--workspace <path>]
+  okx daemon pause --reason "..."
+  okx daemon resume --reason "..."
+
+Options:
+  --workspace <path>  Workspace directory. Defaults to the current directory.
+  --reason <text>     Reason recorded for pause/resume operations.
+  -h, --help          Show this help.
 `);
 }
 
