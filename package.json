@@ -9,8 +9,8 @@
   },
   "type": "module",
   "bin": {
-    "okx-trader": "./bin/okx.mjs",
-    "okx": "./bin/okx.mjs"
+    "okx-trader": "bin/okx.mjs",
+    "okx": "bin/okx.mjs"
   },
   "exports": {
     ".": "./src/sdk/client.mjs"

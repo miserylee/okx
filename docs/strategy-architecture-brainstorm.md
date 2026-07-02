@@ -320,3 +320,14 @@
 - Decisions: Use `v*` tags as the automatic release trigger; publish `okx-trader@0.1.0` with
   `v0.1.0`.
 - Open questions: GitHub Actions result must be checked after pushing the tag.
+
+## Turn 24 - Main Push Release Fallback - 2026-07-03 03:04 +08:00
+
+- User signal: The first tag-triggered trusted publishing run failed and needed repair.
+- Agent work: Removed token-style npm registry setup from the workflow so npm can use OIDC trusted
+  publishing. Added `main` push as a release trigger and a package-version existence check so the
+  workflow publishes only when the current package version is not already on npm.
+- Sources: GitHub Actions failed run logs; local workflow implementation.
+- Decisions: Future pushes to `main` and `v*` tags run validation; publish happens only when
+  `package.json` version is new on npm.
+- Open questions: Confirm the next GitHub Actions run publishes `okx-trader@0.1.0`.
