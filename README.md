@@ -25,7 +25,7 @@ After `init`, the workspace `AGENTS.md` tells future agents to call the built-in
 
 ## Publishing
 
-GitHub Actions workflow: `.github/workflows/publish-npm.yml`.
+GitHub Actions workflow: `.github/workflows/publish.yml`.
 
 This project uses npm Trusted Publishing through GitHub Actions OIDC, so no long-lived npm token is
 stored in GitHub secrets.
@@ -34,7 +34,7 @@ npm setup:
 
 1. On npmjs.com, configure `okx-trader` with a GitHub Actions trusted publisher.
 2. Use GitHub owner/repo: `miserylee/okx`.
-3. Use workflow filename: `publish-npm.yml`.
+3. Use workflow filename: `publish.yml`.
 4. Allow `npm publish`.
 
 Release flow:

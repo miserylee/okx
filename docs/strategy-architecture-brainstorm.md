@@ -307,7 +307,7 @@
 - Decisions: Use trusted publishing, not a long-lived npm token; publish remains manually triggered
   by `workflow_dispatch`.
 - Open questions: npmjs.com still needs the trusted publisher entry for `miserylee/okx` and
-  workflow filename `publish-npm.yml`.
+  workflow filename `publish.yml`.
 
 ## Turn 23 - Publish on Version Tag Push - 2026-07-03 02:58 +08:00
 
