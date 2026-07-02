@@ -64,5 +64,5 @@ jobs:
           fi
 
       - name: Publish to npm with trusted publishing
-        if: ${{ steps.package-version.outputs.should_publish == 'true' && (github.event_name == 'push' || github.event.inputs.publish == 'true') }}
+        if: ${{ steps.package-version.outputs.should_publish == 'true' && github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true' }}
         run: npm publish --access public --provenance

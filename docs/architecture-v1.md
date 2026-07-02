@@ -14,6 +14,9 @@ trader owns strategy logic, scheduling, loops, experiments, and handoff notes.
 - AI traders write and run their own strategy scripts.
 - The daemon exposes execution primitives through local HTTP APIs and SSE streams.
 - A Node SDK wraps daemon discovery and common calls for strategy scripts.
+- AI trader strategy scripts should use the SDK, and direct one-off operations should use the CLI.
+  Traders should not call OKX APIs, hand-roll daemon HTTP clients, or modify this package from a
+  trader workspace. Missing capabilities should be reported to the human/package maintainer.
 - Every operation is audited in sandbox and live.
 - The daemon trusts the AI trader once credentials are configured; it does not enforce mandatory
   trade amount or frequency limits.

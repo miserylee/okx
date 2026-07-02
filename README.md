@@ -44,10 +44,10 @@ npm version patch
 git push origin main --tags
 ```
 
-Pushing `main` or a `v*` tag runs the publish workflow. The workflow checks whether the current
-package version already exists on npm and only publishes when it is new. You can also open GitHub
-Actions, run `Publish npm package`, and set `publish` to `true`. The workflow runs `npm ci`,
-`npm run check:mjs`, `npm run mock:story`, and `npm pack --dry-run` before publishing
+Pushing `main` or a `v*` tag runs validation only. Do not publish a new npm version unless the user
+explicitly asks for a release. To publish, open GitHub Actions, run `Publish npm package`, and set
+`publish` to `true`. The workflow checks whether the package version already exists, then runs
+`npm ci`, `npm run check:mjs`, `npm run mock:story`, and `npm pack --dry-run` before publishing
 `okx-trader` to npm through trusted publishing.
 
 ## Documentation

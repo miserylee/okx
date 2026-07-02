@@ -410,3 +410,27 @@
   observation targets are agent-managed notes unless the user explicitly requests a durable config
   field.
 - Open questions: none.
+
+## Turn 31 - Trader Uses SDK/CLI Only - 2026-07-03 04:24 +08:00
+
+- User signal: AI traders should not look up OKX API docs or write scripts that call OKX APIs
+  directly. They should access the daemon through the SDK or CLI. If capability is missing, the
+  trader should surface it instead of changing this package.
+- Agent work: Updated `okx context` and architecture notes to define the access boundary: strategy
+  scripts use the Node SDK, direct one-off operations use CLI, and raw OKX REST/WebSocket or daemon
+  HTTP calls are not trader-script paths.
+- Sources: conversation; `okx context` implementation.
+- Decisions: Missing execution capability is a human/package-maintainer request, not a reason for
+  the trader to bypass the daemon or modify the package from a trading workspace.
+- Open questions: none.
+
+## Turn 32 - Release Only on Explicit Request - 2026-07-03 04:31 +08:00
+
+- User signal: Do not publish a new npm version unless the user explicitly requests a release.
+- Agent work: Reverted the local package version bump and changed the GitHub Actions publish
+  workflow so pushes and tags run validation only. npm publishing now requires manual workflow
+  dispatch with `publish=true`.
+- Sources: conversation; `.github/workflows/publish.yml`.
+- Decisions: Code/doc changes may be committed and pushed for validation, but npm version bumps and
+  npm publishes require explicit user release instruction.
+- Open questions: none.
