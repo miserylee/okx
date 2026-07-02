@@ -15,7 +15,12 @@ import { removeRegistry, writeRegistry } from "../lib/registry.mjs";
 
 const WRITE_KINDS = new Set([
   "order.place",
+  "order.amend",
   "order.cancel",
+  "orders.batch.place",
+  "orders.batch.amend",
+  "orders.batch.cancel",
+  "position.close",
   "algo.place",
   "algo.amend",
   "algo.cancel",
@@ -31,6 +36,7 @@ export async function runDaemon({ workspace = process.cwd(), host = "127.0.0.1",
 
   let state = loadState(root);
   const subscribers = new Set();
+  const privateStreams = new Map();
   let server;
 
   function registryEntry() {
@@ -80,6 +86,7 @@ export async function runDaemon({ workspace = process.cwd(), host = "127.0.0.1",
         selfPause,
         emit,
         addSubscriber,
+        privateStreams,
         shutdown,
       });
     } catch (error) {
@@ -152,6 +159,10 @@ export async function runDaemon({ workspace = process.cwd(), host = "127.0.0.1",
   }
 
   function shutdown({ exit = false } = {}) {
+    for (const stream of privateStreams.values()) {
+      stream.close();
+    }
+    privateStreams.clear();
     for (const subscriber of subscribers) {
       subscriber.end();
     }
@@ -272,6 +283,94 @@ async function handleRequest(ctx) {
     });
   }
 
+  if (request.method === "GET" && pathname === "/v1/market/books") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "market.books",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.books({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/market/trades") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "market.trades",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.trades({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/market/trades-history") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "market.tradesHistory",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.tradesHistory({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/market/funding-rate") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "market.fundingRate",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.fundingRate({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/market/funding-rate-history") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "market.fundingRateHistory",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.fundingRateHistory({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/market/open-interest") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "market.openInterest",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.openInterest({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/market/mark-price") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "market.markPrice",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.markPrice({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/market/index-tickers") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "market.indexTickers",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.indexTickers({ env: context.env, ...query }),
+    });
+  }
+
   if (request.method === "GET" && pathname === "/v1/account/balance") {
     requireContext(context);
     return audited(ctx, response, {
@@ -305,6 +404,50 @@ async function handleRequest(ctx) {
     });
   }
 
+  if (request.method === "GET" && pathname === "/v1/account/bills") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "account.bills",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.bills({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/account/max-size") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "account.maxSize",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.maxSize({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/account/max-avail-size") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "account.maxAvailSize",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.maxAvailSize({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/account/fee-rates") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "account.feeRates",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.feeRates({ env: context.env, ...query }),
+    });
+  }
+
   if (request.method === "GET" && pathname === "/v1/orders/open") {
     requireContext(context);
     const query = Object.fromEntries(url.searchParams);
@@ -324,6 +467,17 @@ async function handleRequest(ctx) {
       context,
       requestSnapshot: query,
       operation: () => exchange.orderHistory({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/orders/get") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "order.get",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.getOrder({ env: context.env, ...query }),
     });
   }
 
@@ -381,6 +535,17 @@ async function handleRequest(ctx) {
     });
   }
 
+  if (request.method === "POST" && pathname === "/v1/orders/amend") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "order.amend",
+      context,
+      requestSnapshot: body,
+      operation: () => exchange.amendOrder({ env: context.env, ...body }),
+      eventType: "order.update",
+    });
+  }
+
   if (request.method === "POST" && pathname === "/v1/orders/cancel") {
     requireContext(context);
     return audited(ctx, response, {
@@ -388,6 +553,61 @@ async function handleRequest(ctx) {
       context,
       requestSnapshot: body,
       operation: () => exchange.cancelOrder({ env: context.env, ...body }),
+      eventType: "order.update",
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/orders/batch/place") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "orders.batch.place",
+      context,
+      requestSnapshot: body,
+      operation: () => exchange.placeBatchOrders({ env: context.env, orders: body.orders || [] }),
+      eventType: "order.update",
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/orders/batch/amend") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "orders.batch.amend",
+      context,
+      requestSnapshot: body,
+      operation: () => exchange.amendBatchOrders({ env: context.env, orders: body.orders || [] }),
+      eventType: "order.update",
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/orders/batch/cancel") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "orders.batch.cancel",
+      context,
+      requestSnapshot: body,
+      operation: () => exchange.cancelBatchOrders({ env: context.env, orders: body.orders || [] }),
+      eventType: "order.update",
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/orders/cancel-all-after") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "order.cancelAllAfter",
+      context,
+      requestSnapshot: body,
+      operation: () => exchange.cancelAllAfter({ env: context.env, ...body }),
+      eventType: "risk.event",
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/positions/close") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "position.close",
+      context,
+      requestSnapshot: body,
+      operation: () => exchange.closePosition({ env: context.env, ...body }),
       eventType: "order.update",
     });
   }
@@ -436,6 +656,53 @@ async function handleRequest(ctx) {
     });
   }
 
+  if (request.method === "GET" && pathname === "/v1/fills/history") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "fills.history",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.fillsHistory({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/streams/private/start") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "stream.private.start",
+      context,
+      requestSnapshot: body,
+      operation: () => startPrivateStream(ctx, context, body),
+      resultSnapshot: (result) => ({
+        env: result.env,
+        status: result.status,
+        channels: result.channels,
+        startedAt: result.startedAt,
+      }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/streams/private/status") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "stream.private.status",
+      context,
+      requestSnapshot: {},
+      operation: async () => privateStreamStatus(ctx, context.env),
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/streams/private/stop") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "stream.private.stop",
+      context,
+      requestSnapshot: {},
+      operation: async () => stopPrivateStream(ctx, context.env),
+    });
+  }
+
   if (request.method === "GET" && pathname === "/v1/audit/recent") {
     requireContext(context);
     const query = Object.fromEntries(url.searchParams);
@@ -470,6 +737,44 @@ async function handleRequest(ctx) {
       emit,
     });
   }
+}
+
+async function startPrivateStream(ctx, context, body) {
+  const key = context.env;
+  const current = ctx.privateStreams.get(key);
+  if (current && !["closed", "error"].includes(current.status().status)) {
+    return current.status();
+  }
+
+  const stream = ctx.exchange.createPrivateStream({
+    env: context.env,
+    channels: normalizePrivateChannels(body.channels),
+    onEvent: (type, data) => ctx.emit(type, { env: context.env, source: context.source, data }),
+  });
+  ctx.privateStreams.set(key, stream);
+  return stream.status();
+}
+
+async function stopPrivateStream(ctx, env) {
+  const current = ctx.privateStreams.get(env);
+  if (!current) return { env, status: "stopped" };
+  current.close();
+  ctx.privateStreams.delete(env);
+  return { env, status: "stopped" };
+}
+
+async function privateStreamStatus(ctx, env) {
+  const current = ctx.privateStreams.get(env);
+  if (!current) return { env, status: "stopped" };
+  return current.status();
+}
+
+function normalizePrivateChannels(channels) {
+  if (!channels) return undefined;
+  if (!Array.isArray(channels)) {
+    throw new Error("channels must be an array");
+  }
+  return channels;
 }
 
 async function auditedOperation({
@@ -565,10 +870,21 @@ function auditRecord({ kind, context, requestSnapshot, result, error, latencyMs 
 }
 
 function kindToMethod(kind) {
+  if (kind === "order.get") return "GET";
   if (
     kind.startsWith("order.") ||
     kind.startsWith("control.") ||
-    ["algo.place", "algo.amend", "algo.cancel"].includes(kind)
+    kind.startsWith("position.") ||
+    [
+      "algo.place",
+      "algo.amend",
+      "algo.cancel",
+      "orders.batch.place",
+      "orders.batch.amend",
+      "orders.batch.cancel",
+      "stream.private.start",
+      "stream.private.stop",
+    ].includes(kind)
   ) {
     return "POST";
   }
@@ -584,14 +900,33 @@ function kindToPath(kind) {
     "instrument.get": "/v1/instruments/:instId",
     "market.ticker": "/v1/market/ticker",
     "market.candles": "/v1/market/candles",
+    "market.books": "/v1/market/books",
+    "market.trades": "/v1/market/trades",
+    "market.tradesHistory": "/v1/market/trades-history",
+    "market.fundingRate": "/v1/market/funding-rate",
+    "market.fundingRateHistory": "/v1/market/funding-rate-history",
+    "market.openInterest": "/v1/market/open-interest",
+    "market.markPrice": "/v1/market/mark-price",
+    "market.indexTickers": "/v1/market/index-tickers",
     "account.balance": "/v1/account/balance",
     "account.positions": "/v1/account/positions",
     "account.available": "/v1/account/available",
+    "account.bills": "/v1/account/bills",
+    "account.maxSize": "/v1/account/max-size",
+    "account.maxAvailSize": "/v1/account/max-avail-size",
+    "account.feeRates": "/v1/account/fee-rates",
     "orders.open": "/v1/orders/open",
     "orders.history": "/v1/orders/history",
+    "order.get": "/v1/orders/get",
     "order.preview": "/v1/orders/preview",
     "order.place": "/v1/orders/place",
+    "order.amend": "/v1/orders/amend",
     "order.cancel": "/v1/orders/cancel",
+    "orders.batch.place": "/v1/orders/batch/place",
+    "orders.batch.amend": "/v1/orders/batch/amend",
+    "orders.batch.cancel": "/v1/orders/batch/cancel",
+    "order.cancelAllAfter": "/v1/orders/cancel-all-after",
+    "position.close": "/v1/positions/close",
     "algo.open": "/v1/orders/algo/open",
     "algo.history": "/v1/orders/algo/history",
     "algo.get": "/v1/orders/algo/get",
@@ -599,6 +934,10 @@ function kindToPath(kind) {
     "algo.amend": "/v1/orders/algo/amend",
     "algo.cancel": "/v1/orders/algo/cancel",
     "fills.list": "/v1/fills",
+    "fills.history": "/v1/fills/history",
+    "stream.private.start": "/v1/streams/private/start",
+    "stream.private.status": "/v1/streams/private/status",
+    "stream.private.stop": "/v1/streams/private/stop",
     "audit.recent": "/v1/audit/recent",
   }[kind];
 }

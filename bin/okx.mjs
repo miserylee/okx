@@ -114,6 +114,16 @@ async function main() {
     return;
   }
 
+  if (command === "streams") {
+    const options = parseOptions(rest);
+    if (!subcommand || subcommand === "--help" || subcommand === "-h" || options.help) {
+      printStreamsHelp();
+      return;
+    }
+    await streamsCommand(subcommand, options);
+    return;
+  }
+
   if (command === "audit") {
     const options = parseOptions(rest);
     if (!subcommand || subcommand === "--help" || subcommand === "-h" || options.help) {
@@ -279,6 +289,116 @@ async function marketCommand(subcommand, options) {
     return;
   }
 
+  if (subcommand === "books") {
+    const instId = requireOption(options, "instId", "--inst-id");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/market/books",
+      query: { instId, sz: options.size || options.sz },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "trades") {
+    const instId = requireOption(options, "instId", "--inst-id");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/market/trades",
+      query: { instId, limit: options.limit },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "trades-history") {
+    const instId = requireOption(options, "instId", "--inst-id");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/market/trades-history",
+      query: {
+        instId,
+        type: options.type,
+        after: options.after,
+        before: options.before,
+        limit: options.limit,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "funding-rate") {
+    const instId = requireOption(options, "instId", "--inst-id");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/market/funding-rate",
+      query: { instId },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "funding-rate-history") {
+    const instId = requireOption(options, "instId", "--inst-id");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/market/funding-rate-history",
+      query: { instId, after: options.after, before: options.before, limit: options.limit },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "open-interest") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/market/open-interest",
+      query: instrumentQuery(options, { instType: "SWAP" }),
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "mark-price") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/market/mark-price",
+      query: instrumentQuery(options, { instType: "SWAP" }),
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "index-tickers") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/market/index-tickers",
+      query: {
+        instId: options.instId,
+        quoteCcy: options.quoteCcy,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
   throw new Error(`Unknown market subcommand: ${subcommand}`);
 }
 
@@ -324,6 +444,80 @@ async function accountCommand(subcommand, options) {
     return;
   }
 
+  if (subcommand === "bills") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/account/bills",
+      query: {
+        instType: options.instType,
+        ccy: options.ccy,
+        mgnMode: options.mgnMode,
+        ctType: options.ctType,
+        type: options.type,
+        subType: options.subType,
+        after: options.after,
+        before: options.before,
+        limit: options.limit,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "max-size") {
+    const instId = requireOption(options, "instId", "--inst-id");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/account/max-size",
+      query: {
+        instId,
+        tdMode: options.tdMode,
+        ccy: options.ccy,
+        px: options.price || options.px,
+        leverage: options.leverage,
+        unSpotOffset: options.unSpotOffset,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "max-avail-size") {
+    const instId = requireOption(options, "instId", "--inst-id");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/account/max-avail-size",
+      query: {
+        instId,
+        tdMode: options.tdMode,
+        ccy: options.ccy,
+        reduceOnly: options.reduceOnly,
+        unSpotOffset: options.unSpotOffset,
+        quickMgnType: options.quickMgnType,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "fee-rates") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/account/fee-rates",
+      query: instrumentQuery(options, { instType: "SPOT" }),
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
   throw new Error(`Unknown account subcommand: ${subcommand}`);
 }
 
@@ -356,6 +550,18 @@ async function ordersCommand(subcommand, options) {
         before: options.before,
         limit: options.limit,
       },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "get") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/orders/get",
+      query: orderIdentity(options),
       options,
     });
     printJson(payload.data);
@@ -468,12 +674,87 @@ async function ordersCommand(subcommand, options) {
     return;
   }
 
+  if (subcommand === "amend") {
+    const body = orderAmendBody(options);
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/amend",
+      body,
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
   if (subcommand === "cancel") {
     const body = orderCancelBody(options);
     const payload = await daemonRequest({
       workspace: options.workspace,
       method: "POST",
       pathname: "/v1/orders/cancel",
+      body,
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "batch-place") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/batch/place",
+      body: { orders: orderListFromOptions(options, { defaultTdMode: "cash" }) },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "batch-amend") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/batch/amend",
+      body: { orders: orderListFromOptions(options) },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "batch-cancel") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/batch/cancel",
+      body: { orders: orderListFromOptions(options) },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "cancel-all-after") {
+    const timeOut = requireOption(options, "timeout", "--timeout");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/cancel-all-after",
+      body: { timeOut },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "close-position") {
+    const body = positionCloseBody(options);
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/positions/close",
       body,
       options,
     });
@@ -505,7 +786,65 @@ async function fillsCommand(subcommand, options) {
     return;
   }
 
+  if (action === "history") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/fills/history",
+      query: {
+        instType: options.instType,
+        instId: options.instId,
+        ordId: options.ordId || options.orderId,
+        after: options.after,
+        before: options.before,
+        limit: options.limit,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
   throw new Error(`Unknown fills subcommand: ${subcommand}`);
+}
+
+async function streamsCommand(subcommand, options) {
+  if (subcommand === "private-start") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/streams/private/start",
+      body: privateStreamBody(options),
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "private-status") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/streams/private/status",
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "private-stop") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/streams/private/stop",
+      body: {},
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  throw new Error(`Unknown streams subcommand: ${subcommand}`);
 }
 
 async function auditCommand(subcommand, options) {
@@ -779,6 +1118,30 @@ function orderPlaceBody(options) {
   return body;
 }
 
+function orderIdentity(options) {
+  const instId = requireOption(options, "instId", "--inst-id");
+  const ordId = options.ordId || options.orderId;
+  const clOrdId = options.clOrdId || options.clientOrderId;
+  if (!ordId && !clOrdId) {
+    throw new Error("orders get requires --ord-id <id> or --client-order-id <id>");
+  }
+  return {
+    instId,
+    ...(ordId ? { ordId } : {}),
+    ...(clOrdId ? { clOrdId } : {}),
+  };
+}
+
+function orderAmendBody(options) {
+  const body = orderIdentity(options);
+  const newSz = options.newSz || options.newSize;
+  const newPx = options.newPx || options.newPrice;
+  copyOptions(body, options, ["cxlOnFail", "reqId"]);
+  if (newSz) body.newSz = newSz;
+  if (newPx) body.newPx = newPx;
+  return body;
+}
+
 function orderCancelBody(options) {
   const instId = requireOption(options, "instId", "--inst-id");
   const ordId = options.ordId || options.orderId;
@@ -791,6 +1154,21 @@ function orderCancelBody(options) {
     ...(ordId ? { ordId } : {}),
     ...(clOrdId ? { clOrdId } : {}),
   };
+}
+
+function orderListFromOptions(options, { defaultTdMode } = {}) {
+  const source = options.ordersJson || options.orders;
+  let orders;
+  if (source) {
+    orders = JSON.parse(source);
+  } else if (options.ordersFile) {
+    const filePath = path.resolve(process.cwd(), options.ordersFile);
+    orders = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } else {
+    throw new Error("batch orders require --orders-json <json-array> or --orders-file <path>");
+  }
+  if (!Array.isArray(orders)) throw new Error("batch orders payload must be a JSON array");
+  return defaultTdMode ? orders.map((order) => ({ tdMode: defaultTdMode, ...order })) : orders;
 }
 
 function orderAlgoQuery(options) {
@@ -905,6 +1283,36 @@ function orderAlgoCancelBody(options) {
   return orderAlgoIdentity(options);
 }
 
+function positionCloseBody(options) {
+  const instId = requireOption(options, "instId", "--inst-id");
+  const mgnMode = requireOption(options, "mgnMode", "--mgn-mode");
+  const body = { instId, mgnMode };
+  copyOptions(body, options, ["posSide", "ccy", "autoCxl"]);
+  return body;
+}
+
+function instrumentQuery(options, defaults = {}) {
+  return {
+    instType: options.instType || defaults.instType,
+    instId: options.instId,
+    uly: options.uly,
+    instFamily: options.instFamily,
+  };
+}
+
+function privateStreamBody(options) {
+  if (options.channelsJson) return { channels: JSON.parse(options.channelsJson) };
+  if (!options.channels) return {};
+  const instType = options.instType || "ANY";
+  return {
+    channels: String(options.channels)
+      .split(",")
+      .map((channel) => channel.trim())
+      .filter(Boolean)
+      .map((channel) => (channel === "account" ? { channel } : { channel, instType })),
+  };
+}
+
 function copyOptions(target, source, keys) {
   for (const key of keys) {
     if (source[key] != null && source[key] !== true && source[key] !== "") {
@@ -1014,18 +1422,30 @@ Commands:
   okx instruments --inst-type SPOT --inst-id BTC-USDT
   okx market ticker --inst-id BTC-USDT
   okx market candles --inst-id BTC-USDT --bar 1m --limit 100
+  okx market books --inst-id BTC-USDT --size 5
+  okx market trades --inst-id BTC-USDT --limit 20
+  okx market funding-rate --inst-id BTC-USDT-SWAP
+  okx market open-interest --inst-type SWAP --inst-id BTC-USDT-SWAP
   okx account balance
   okx account positions
   okx account available --ccy USDT
+  okx account bills --limit 20
+  okx account max-size --inst-id BTC-USDT --td-mode cash
   okx orders open
+  okx orders get --inst-id BTC-USDT --ord-id <order-id>
   okx orders preview --inst-id BTC-USDT --side buy --type market --size 0.001
   okx orders history --inst-id BTC-USDT
   okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
+  okx orders amend --inst-id BTC-USDT --ord-id <order-id> --new-price 101
   okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
+  okx orders batch-place --orders-json '[{"instId":"BTC-USDT","side":"buy","ordType":"limit","sz":"0.001","px":"100"}]'
+  okx orders cancel-all-after --timeout 30
   okx orders tp-sl --inst-id BTC-USDT --side sell --size 0.001 --tp-trigger-px 70000 --sl-trigger-px 62000
   okx orders algo-open --inst-id BTC-USDT
   okx orders algo-cancel --inst-id BTC-USDT --algo-id <algo-id>
   okx fills --inst-id BTC-USDT
+  okx fills history --inst-id BTC-USDT
+  okx streams private-start --channels account,positions,orders,orders-algo
   okx audit recent --limit 20
 
 Options:
@@ -1105,14 +1525,29 @@ function printMarketHelp() {
 Usage:
   okx market ticker --inst-id BTC-USDT [--env sandbox] [--source cli]
   okx market candles --inst-id BTC-USDT --bar 1m --limit 100
+  okx market books --inst-id BTC-USDT --size 5
+  okx market trades --inst-id BTC-USDT --limit 20
+  okx market trades-history --inst-id BTC-USDT --limit 20
+  okx market funding-rate --inst-id BTC-USDT-SWAP
+  okx market funding-rate-history --inst-id BTC-USDT-SWAP --limit 20
+  okx market open-interest --inst-type SWAP --inst-id BTC-USDT-SWAP
+  okx market mark-price --inst-type SWAP --inst-id BTC-USDT-SWAP
+  okx market index-tickers --inst-id BTC-USDT
 
 Options:
   --workspace <path>  Workspace directory. Defaults to the current directory.
   --env <env>         Daemon request environment: sandbox or live. Defaults to sandbox.
   --source <label>    Audit source label. Defaults to cli.
   --inst-id <id>      OKX instrument id, for example BTC-USDT.
+  --inst-type <type>  OKX instrument type for derivative/public market endpoints.
+  --inst-family <id>  Optional OKX instrument family.
+  --uly <uly>         Optional OKX underlying.
+  --quote-ccy <ccy>   Optional quote currency for index tickers.
   --bar <bar>         Candle bar. Defaults to 1m.
+  --size <count>      Order book depth size.
   --limit <count>     Candle count. Defaults to 100.
+  --after <cursor>    Optional OKX pagination cursor.
+  --before <cursor>   Optional OKX pagination cursor.
 `);
 }
 
@@ -1123,6 +1558,10 @@ Usage:
   okx account balance [--env sandbox] [--source cli]
   okx account positions [--inst-type SWAP] [--inst-id BTC-USDT-SWAP]
   okx account available [--ccy USDT]
+  okx account bills [--ccy USDT] [--limit 20]
+  okx account max-size --inst-id BTC-USDT --td-mode cash
+  okx account max-avail-size --inst-id BTC-USDT --td-mode cash
+  okx account fee-rates --inst-type SPOT --inst-id BTC-USDT
 
 Options:
   --workspace <path>  Workspace directory. Defaults to the current directory.
@@ -1132,6 +1571,14 @@ Options:
   --inst-id <id>      Optional OKX instrument id for positions.
   --pos-id <id>       Optional OKX position id.
   --ccy <ccy>         Optional currency filter for available balances.
+  --td-mode <mode>    OKX trade mode for max-size queries.
+  --price <price>     Optional price for max-size queries.
+  --leverage <value>  Optional leverage for max-size queries.
+  --type <type>       Optional bill type or fee query type.
+  --sub-type <type>   Optional bill subtype.
+  --after <cursor>    Optional OKX pagination cursor.
+  --before <cursor>   Optional OKX pagination cursor.
+  --limit <count>     Optional OKX result count.
 `);
 }
 
@@ -1140,11 +1587,18 @@ function printOrdersHelp() {
 
 Usage:
   okx orders open [--inst-id BTC-USDT]
+  okx orders get --inst-id BTC-USDT --ord-id <order-id>
   okx orders history [--inst-id BTC-USDT]
   okx orders preview --inst-id BTC-USDT --side buy --type market --size 0.001
   okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
   okx orders place --inst-id BTC-USDT --side buy --type limit --size 0.001 --price 100
+  okx orders amend --inst-id BTC-USDT --ord-id <order-id> --new-price 101 --new-size 0.002
   okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
+  okx orders batch-place --orders-json '[{"instId":"BTC-USDT","side":"buy","ordType":"limit","sz":"0.001","px":"100"}]'
+  okx orders batch-amend --orders-json '[{"instId":"BTC-USDT","ordId":"1","newPx":"101"}]'
+  okx orders batch-cancel --orders-json '[{"instId":"BTC-USDT","ordId":"1"}]'
+  okx orders cancel-all-after --timeout 30
+  okx orders close-position --inst-id BTC-USDT-SWAP --mgn-mode cross
   okx orders take-profit --inst-id BTC-USDT --side sell --size 0.001 --trigger-px 70000
   okx orders stop-loss --inst-id BTC-USDT --side sell --size 0.001 --trigger-px 62000
   okx orders tp-sl --inst-id BTC-USDT --side sell --size 0.001 --tp-trigger-px 70000 --sl-trigger-px 62000
@@ -1165,6 +1619,13 @@ Options:
   --size <amount>                  Order size.
   --price <price>                  Limit order price.
   --td-mode <mode>                 OKX trade mode. Defaults in daemon adapter.
+  --new-price <price>              Amend order price.
+  --new-size <amount>              Amend order size.
+  --orders-json <json-array>       Batch orders JSON array.
+  --orders-file <path>             Batch orders JSON file.
+  --timeout <seconds>              Cancel-all-after timeout. Use 0 to disable.
+  --mgn-mode <mode>                Margin mode for close-position.
+  --pos-side <side>                Optional position side for close-position.
   --tp-trigger-px <price>          Take-profit trigger price for conditional algo orders.
   --tp-ord-px <price|-1>           Take-profit order price. Use -1 for market.
   --sl-trigger-px <price>          Stop-loss trigger price for conditional algo orders.
@@ -1189,6 +1650,7 @@ function printFillsHelp() {
 Usage:
   okx fills [--inst-id BTC-USDT]
   okx fills list [--inst-id BTC-USDT] [--ord-id <order-id>]
+  okx fills history [--inst-id BTC-USDT] [--ord-id <order-id>]
 
 Options:
   --workspace <path>  Workspace directory. Defaults to the current directory.
@@ -1200,6 +1662,24 @@ Options:
   --after <cursor>    Optional OKX pagination cursor.
   --before <cursor>   Optional OKX pagination cursor.
   --limit <count>     Optional OKX result count.
+`);
+}
+
+function printStreamsHelp() {
+  console.log(`Bridge OKX private WebSocket updates into daemon SSE events
+
+Usage:
+  okx streams private-start [--channels account,positions,orders,orders-algo]
+  okx streams private-status
+  okx streams private-stop
+
+Options:
+  --workspace <path>       Workspace directory. Defaults to the current directory.
+  --env <env>              Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>         Audit source label. Defaults to cli.
+  --channels <csv>         Private channels to subscribe. Defaults in daemon adapter.
+  --channels-json <json>   Raw OKX private channel args JSON array.
+  --inst-type <type>       Inst type attached to CSV channels except account. Defaults to ANY.
 `);
 }
 

@@ -448,3 +448,20 @@
   the Node SDK helpers or `orders.algo.*`; direct OKX API calls remain outside the trader workspace
   boundary. Algo writes are audited and rejected while the daemon is paused.
 - Open questions: none.
+
+## Turn 34 - Broader Execution And Market Surface - 2026-07-03 05:28 +08:00
+
+- User signal: Implement all previously suggested high-value interfaces instead of stopping at
+  TP/SL.
+- Agent work: Added ordinary order get/amend, batch place/amend/cancel, cancel-all-after,
+  close-position, fills history, bills, max size, max available size, fee rates, order book, recent
+  trades, historical trades, funding rate, funding history, open interest, mark price, index
+  tickers, and a private OKX WebSocket bridge that forwards private account/order/position updates
+  into daemon SSE.
+- Sources: conversation; official OKX v5 Trade, Account, Market Data, Public Data, and WebSocket
+  API documentation.
+- Decisions: Keep strategy scripts on SDK/CLI only. These endpoints belong in the daemon execution
+  layer because they are useful for market sensing, order lifecycle certainty, position recovery,
+  sizing/cost checks, and event-driven handoff. No npm version is published unless explicitly
+  requested.
+- Open questions: none.

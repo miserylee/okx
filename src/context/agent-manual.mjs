@@ -151,14 +151,22 @@ npm run ${CLI_SCRIPT_NAME} -- state --source agent/state-check
 npm run ${CLI_SCRIPT_NAME} -- instruments --inst-type SPOT --env sandbox --source agent/instrument-scan
 npm run ${CLI_SCRIPT_NAME} -- market ticker --inst-id BTC-USDT --env sandbox --source agent/ticker-check
 npm run ${CLI_SCRIPT_NAME} -- market candles --inst-id BTC-USDT --bar 1m --limit 100 --env sandbox --source agent/candle-check
+npm run ${CLI_SCRIPT_NAME} -- market books --inst-id BTC-USDT --size 5 --env sandbox --source agent/book-check
+npm run ${CLI_SCRIPT_NAME} -- market trades --inst-id BTC-USDT --limit 20 --env sandbox --source agent/trade-tape
+npm run ${CLI_SCRIPT_NAME} -- market funding-rate --inst-id BTC-USDT-SWAP --env sandbox --source agent/funding-check
+npm run ${CLI_SCRIPT_NAME} -- market open-interest --inst-id BTC-USDT-SWAP --env sandbox --source agent/oi-check
 npm run ${CLI_SCRIPT_NAME} -- account positions --env sandbox --source agent/position-check
 npm run ${CLI_SCRIPT_NAME} -- account available --env sandbox --source agent/available-check
 npm run ${CLI_SCRIPT_NAME} -- account balance --env sandbox --source agent/balance-check
+npm run ${CLI_SCRIPT_NAME} -- account bills --limit 20 --env sandbox --source agent/bills-review
+npm run ${CLI_SCRIPT_NAME} -- account max-size --inst-id BTC-USDT --td-mode cash --env sandbox --source agent/size-check
+npm run ${CLI_SCRIPT_NAME} -- account fee-rates --inst-id BTC-USDT --env sandbox --source agent/fee-check
 npm run ${CLI_SCRIPT_NAME} -- orders open --env sandbox --source agent/order-review
 npm run ${CLI_SCRIPT_NAME} -- orders history --env sandbox --source agent/order-review
 npm run ${CLI_SCRIPT_NAME} -- orders algo-open --env sandbox --source agent/algo-review
 npm run ${CLI_SCRIPT_NAME} -- orders algo-history --env sandbox --source agent/algo-review
 npm run ${CLI_SCRIPT_NAME} -- fills --env sandbox --source agent/fill-review
+npm run ${CLI_SCRIPT_NAME} -- fills history --env sandbox --source agent/fill-history
 npm run ${CLI_SCRIPT_NAME} -- audit recent --limit 20 --env sandbox --source agent/audit-review
 \`\`\`
 
@@ -167,11 +175,23 @@ Trade through CLI when direct intervention is appropriate:
 \`\`\`bash
 npm run ${CLI_SCRIPT_NAME} -- orders place --inst-id BTC-USDT --side buy --type market --size 0.001 --env sandbox --source agent/manual-entry
 npm run ${CLI_SCRIPT_NAME} -- orders place --inst-id BTC-USDT --side buy --type limit --size 0.001 --price 100 --env sandbox --source agent/manual-entry
+npm run ${CLI_SCRIPT_NAME} -- orders get --inst-id BTC-USDT --ord-id <order-id> --env sandbox --source agent/order-confirm
+npm run ${CLI_SCRIPT_NAME} -- orders amend --inst-id BTC-USDT --ord-id <order-id> --new-price 101 --env sandbox --source agent/manual-amend
 npm run ${CLI_SCRIPT_NAME} -- orders cancel --inst-id BTC-USDT --ord-id <order-id> --env sandbox --source agent/manual-cancel
+npm run ${CLI_SCRIPT_NAME} -- orders batch-place --orders-json '[{"instId":"BTC-USDT","side":"buy","ordType":"limit","sz":"0.001","px":"100"}]' --env sandbox --source agent/batch-entry
+npm run ${CLI_SCRIPT_NAME} -- orders cancel-all-after --timeout 30 --env sandbox --source agent/deadman-switch
 npm run ${CLI_SCRIPT_NAME} -- orders take-profit --inst-id BTC-USDT --side sell --size 0.001 --trigger-px 70000 --env sandbox --source agent/manual-tp
 npm run ${CLI_SCRIPT_NAME} -- orders stop-loss --inst-id BTC-USDT --side sell --size 0.001 --trigger-px 62000 --env sandbox --source agent/manual-sl
 npm run ${CLI_SCRIPT_NAME} -- orders tp-sl --inst-id BTC-USDT --side sell --size 0.001 --tp-trigger-px 70000 --sl-trigger-px 62000 --env sandbox --source agent/manual-tpsl
 npm run ${CLI_SCRIPT_NAME} -- orders algo-cancel --inst-id BTC-USDT --algo-id <algo-id> --env sandbox --source agent/manual-algo-cancel
+\`\`\`
+
+Start private exchange updates when a strategy needs fast account/order/position awareness:
+
+\`\`\`bash
+npm run ${CLI_SCRIPT_NAME} -- streams private-start --channels account,positions,orders,orders-algo --env sandbox --source agent/private-stream
+npm run ${CLI_SCRIPT_NAME} -- streams private-status --env sandbox --source agent/private-stream
+npm run ${CLI_SCRIPT_NAME} -- streams private-stop --env sandbox --source agent/private-stream
 \`\`\`
 
 Use \`--env live\` only after checking current workspace intent, open orders, balances, and recent
@@ -214,14 +234,22 @@ const instruments = await okx.instruments.list({ instType: "SPOT", instId: "BTC-
 const instrument = await okx.instruments.get("BTC-USDT")
 const ticker = await okx.market.ticker("BTC-USDT")
 const candles = await okx.market.candles("BTC-USDT", { bar: "1m", limit: 100 })
+const books = await okx.market.books("BTC-USDT", { sz: 5 })
+const trades = await okx.market.trades("BTC-USDT", { limit: 20 })
+const funding = await okx.market.fundingRate("BTC-USDT-SWAP")
+const openInterest = await okx.market.openInterest({ instId: "BTC-USDT-SWAP" })
 const balance = await okx.account.balance()
 const available = await okx.account.available({ ccy: "USDT" })
 const positions = await okx.account.positions()
+const bills = await okx.account.bills({ limit: 20 })
+const maxSize = await okx.account.maxSize({ instId: "BTC-USDT", tdMode: "cash" })
+const feeRates = await okx.account.feeRates({ instId: "BTC-USDT" })
 const openOrders = await okx.orders.open({ instId: "BTC-USDT" })
 const history = await okx.orders.history({ instId: "BTC-USDT" })
 const openAlgoOrders = await okx.orders.algo.open({ instId: "BTC-USDT" })
 const algoHistory = await okx.orders.algo.history({ instId: "BTC-USDT" })
 const fills = await okx.fills.list({ instId: "BTC-USDT" })
+const fillsHistory = await okx.fills.history({ instId: "BTC-USDT" })
 const audit = await okx.audit.recent({ limit: 20 })
 \`\`\`
 
@@ -236,7 +264,12 @@ await okx.orders.place({
   sz: "0.001",
   px: "100"
 })
+await okx.orders.amend({ instId: "BTC-USDT", ordId: "<order-id>", newPx: "101" })
 await okx.orders.cancel({ instId: "BTC-USDT", ordId: "<order-id>" })
+await okx.orders.batch.place([
+  { instId: "BTC-USDT", side: "buy", ordType: "limit", sz: "0.001", px: "100" }
+])
+await okx.orders.cancelAllAfter(30)
 
 const protectiveAlgo = await okx.orders.placeTpSl({
   instId: "BTC-USDT",
@@ -254,6 +287,19 @@ await okx.orders.algo.amend({
 })
 
 await okx.orders.algo.cancel({ instId: "BTC-USDT", algoId: protectiveAlgo.algoId })
+\`\`\`
+
+Private stream bridge:
+
+\`\`\`js
+await okx.streams.private.start()
+
+const controller = new AbortController()
+await okx.events.subscribe((event) => {
+  if (event.type.startsWith("okx.private.")) {
+    console.log(event.type, event.data)
+  }
+}, { signal: controller.signal })
 \`\`\`
 
 Use two SDK clients if a strategy intentionally touches both sandbox and live:
@@ -291,7 +337,8 @@ await okx.events.subscribe((event) => {
 The AI trader should actively build context before writing or changing a strategy. Use available
 tools and sources:
 
-- daemon market data: instruments, ticker, candles, balances, positions, open orders, fills, audit logs
+- daemon market data: instruments, ticker, candles, order book, trades, funding, open interest,
+  balances, positions, open orders, fills, audit logs, and private order/account events
 - OKX/public exchange information for market context: funding context, exchange notices, outages
 - market news: major headlines, catalysts, regulation, macro events, token-specific developments
 - sentiment and positioning: funding rates, open interest, liquidation clusters, social/news tone
@@ -316,7 +363,8 @@ strategy runtime. A good script should:
 - use the Node SDK to access the daemon; do not call OKX or daemon HTTP directly
 - use one explicit \`source\` label per strategy or experiment
 - start in \`sandbox\` unless live operation is explicitly intended
-- read instruments, balances, positions, open orders, fills, and recent market data before acting
+- read instruments, balances, positions, order book, trades, open orders, fills, and recent market
+  data before acting
 - include the indicators, market filters, and entry/exit rules chosen by the AI trader
 - keep its own loop, timers, stop conditions, and optional risk limits
 - write human-readable decisions and observations to \`docs/\` when they matter for handoff

@@ -144,16 +144,28 @@ okx state
 okx instruments --inst-type SPOT --inst-id BTC-USDT --env sandbox --source cli-check
 okx market ticker --inst-id BTC-USDT --env sandbox --source cli-check
 okx market candles --inst-id BTC-USDT --bar 1m --limit 100
+okx market books --inst-id BTC-USDT --size 5
+okx market trades --inst-id BTC-USDT --limit 20
+okx market funding-rate --inst-id BTC-USDT-SWAP
+okx market open-interest --inst-id BTC-USDT-SWAP
 okx account balance --env sandbox --source cli-check
 okx account positions --env sandbox --source cli-check
 okx account available --ccy USDT --env sandbox --source cli-check
+okx account bills --limit 20 --env sandbox --source cli-check
+okx account max-size --inst-id BTC-USDT --td-mode cash
+okx account fee-rates --inst-id BTC-USDT
 okx orders open --env sandbox --source cli-check
+okx orders get --inst-id BTC-USDT --ord-id <order-id>
 okx orders preview --inst-id BTC-USDT --side buy --type market --size 0.001
 okx orders history --inst-id BTC-USDT --env sandbox --source cli-check
 okx fills --inst-id BTC-USDT --env sandbox --source cli-check
+okx fills history --inst-id BTC-USDT --env sandbox --source cli-check
 okx audit recent --limit 20 --env sandbox --source cli-check
 okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
+okx orders amend --inst-id BTC-USDT --ord-id <order-id> --new-price 101
 okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
+okx orders cancel-all-after --timeout 30
+okx streams private-start --channels account,positions,orders,orders-algo
 ```
 
 No `endpoint` command is needed in v1. Strategy scripts should normally use the Node SDK for
@@ -190,16 +202,35 @@ GET  /v1/instruments/BTC-USDT?instType=SPOT
 
 GET  /v1/market/ticker?instId=BTC-USDT
 GET  /v1/market/candles?instId=BTC-USDT&bar=1m&limit=100
+GET  /v1/market/books?instId=BTC-USDT&sz=5
+GET  /v1/market/trades?instId=BTC-USDT&limit=20
+GET  /v1/market/trades-history?instId=BTC-USDT&limit=20
+GET  /v1/market/funding-rate?instId=BTC-USDT-SWAP
+GET  /v1/market/funding-rate-history?instId=BTC-USDT-SWAP&limit=20
+GET  /v1/market/open-interest?instType=SWAP&instId=BTC-USDT-SWAP
+GET  /v1/market/mark-price?instType=SWAP&instId=BTC-USDT-SWAP
+GET  /v1/market/index-tickers?instId=BTC-USDT
 
 GET  /v1/account/balance
 GET  /v1/account/positions
 GET  /v1/account/available?ccy=USDT
+GET  /v1/account/bills
+GET  /v1/account/max-size
+GET  /v1/account/max-avail-size
+GET  /v1/account/fee-rates
 
 GET  /v1/orders/open
 GET  /v1/orders/history
+GET  /v1/orders/get
 POST /v1/orders/preview
 POST /v1/orders/place
+POST /v1/orders/amend
 POST /v1/orders/cancel
+POST /v1/orders/batch/place
+POST /v1/orders/batch/amend
+POST /v1/orders/batch/cancel
+POST /v1/orders/cancel-all-after
+POST /v1/positions/close
 GET  /v1/orders/algo/open
 GET  /v1/orders/algo/history
 GET  /v1/orders/algo/get
@@ -207,10 +238,14 @@ POST /v1/orders/algo/place
 POST /v1/orders/algo/amend
 POST /v1/orders/algo/cancel
 GET  /v1/fills
+GET  /v1/fills/history
 
 GET  /v1/audit/recent
 
 GET  /v1/events
+POST /v1/streams/private/start
+GET  /v1/streams/private/status
+POST /v1/streams/private/stop
 ```
 
 Raw HTTP callers must provide equivalent context fields for auditable operations:
@@ -232,6 +267,10 @@ V1 event types:
 - `market.ticker`
 - `account.balance`
 - `order.update`
+- `okx.private.account`
+- `okx.private.positions`
+- `okx.private.orders`
+- `okx.private.orders-algo`
 - `risk.event`
 - `error`
 
@@ -261,9 +300,16 @@ const okx = await connectOkxDaemon("btc-runner-01", {
 
 const instruments = await okx.instruments.list({ instType: "SPOT", instId: "BTC-USDT" })
 const ticker = await okx.market.ticker("BTC-USDT")
+const books = await okx.market.books("BTC-USDT", { sz: 5 })
+const trades = await okx.market.trades("BTC-USDT", { limit: 20 })
+const funding = await okx.market.fundingRate("BTC-USDT-SWAP")
+const openInterest = await okx.market.openInterest({ instId: "BTC-USDT-SWAP" })
 const positions = await okx.account.positions()
 const available = await okx.account.available({ ccy: "USDT" })
 const balance = await okx.account.balance()
+const bills = await okx.account.bills({ limit: 20 })
+const maxSize = await okx.account.maxSize({ instId: "BTC-USDT", tdMode: "cash" })
+const feeRates = await okx.account.feeRates({ instId: "BTC-USDT" })
 const preview = await okx.orders.preview({
   instId: "BTC-USDT",
   side: "buy",
@@ -271,6 +317,7 @@ const preview = await okx.orders.preview({
   sz: "0.001"
 })
 await okx.orders.placeMarketBuy("BTC-USDT", "0.001")
+await okx.orders.amend({ instId: "BTC-USDT", ordId: "<order-id>", newPx: "101" })
 await okx.orders.placeTpSl({
   instId: "BTC-USDT",
   side: "sell",
@@ -278,6 +325,8 @@ await okx.orders.placeTpSl({
   tpTriggerPx: "70000",
   slTriggerPx: "62000"
 })
+await okx.orders.cancelAllAfter(30)
+await okx.streams.private.start()
 ```
 
 If one script needs sandbox and live, it creates two clients:

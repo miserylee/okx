@@ -32,18 +32,45 @@ export class OkxDaemonClient {
       ticker: (instId) => this.request("GET", "/v1/market/ticker", { query: { instId } }),
       candles: (instId, options = {}) =>
         this.request("GET", "/v1/market/candles", { query: { instId, ...options } }),
+      books: (instId, options = {}) =>
+        this.request("GET", "/v1/market/books", { query: { instId, ...options } }),
+      trades: (instId, options = {}) =>
+        this.request("GET", "/v1/market/trades", { query: { instId, ...options } }),
+      tradesHistory: (instId, options = {}) =>
+        this.request("GET", "/v1/market/trades-history", { query: { instId, ...options } }),
+      fundingRate: (instId) =>
+        this.request("GET", "/v1/market/funding-rate", { query: { instId } }),
+      fundingRateHistory: (instId, options = {}) =>
+        this.request("GET", "/v1/market/funding-rate-history", { query: { instId, ...options } }),
+      openInterest: (query = {}) => this.request("GET", "/v1/market/open-interest", { query }),
+      markPrice: (query = {}) => this.request("GET", "/v1/market/mark-price", { query }),
+      indexTickers: (query = {}) => this.request("GET", "/v1/market/index-tickers", { query }),
     };
     this.account = {
       balance: () => this.request("GET", "/v1/account/balance"),
       positions: (query = {}) => this.request("GET", "/v1/account/positions", { query }),
       available: (query = {}) => this.request("GET", "/v1/account/available", { query }),
+      bills: (query = {}) => this.request("GET", "/v1/account/bills", { query }),
+      maxSize: (query = {}) => this.request("GET", "/v1/account/max-size", { query }),
+      maxAvailSize: (query = {}) => this.request("GET", "/v1/account/max-avail-size", { query }),
+      feeRates: (query = {}) => this.request("GET", "/v1/account/fee-rates", { query }),
     };
     this.orders = {
       open: (query = {}) => this.request("GET", "/v1/orders/open", { query }),
       history: (query = {}) => this.request("GET", "/v1/orders/history", { query }),
+      get: (query = {}) => this.request("GET", "/v1/orders/get", { query }),
       preview: (order) => this.request("POST", "/v1/orders/preview", { body: order }),
       place: (order) => this.request("POST", "/v1/orders/place", { body: order }),
+      amend: (order) => this.request("POST", "/v1/orders/amend", { body: order }),
       cancel: (order) => this.request("POST", "/v1/orders/cancel", { body: order }),
+      batch: {
+        place: (orders) => this.request("POST", "/v1/orders/batch/place", { body: { orders } }),
+        amend: (orders) => this.request("POST", "/v1/orders/batch/amend", { body: { orders } }),
+        cancel: (orders) => this.request("POST", "/v1/orders/batch/cancel", { body: { orders } }),
+      },
+      cancelAllAfter: (timeOut) =>
+        this.request("POST", "/v1/orders/cancel-all-after", { body: { timeOut: String(timeOut) } }),
+      closePosition: (position) => this.request("POST", "/v1/positions/close", { body: position }),
       algo: {
         open: (query = {}) => this.request("GET", "/v1/orders/algo/open", { query }),
         history: (query = {}) => this.request("GET", "/v1/orders/algo/history", { query }),
@@ -75,9 +102,20 @@ export class OkxDaemonClient {
     };
     this.fills = {
       list: (query = {}) => this.request("GET", "/v1/fills", { query }),
+      history: (query = {}) => this.request("GET", "/v1/fills/history", { query }),
     };
     this.audit = {
       recent: (query = {}) => this.request("GET", "/v1/audit/recent", { query }),
+    };
+    this.streams = {
+      private: {
+        start: (channels) =>
+          this.request("POST", "/v1/streams/private/start", {
+            body: channels ? { channels } : {},
+          }),
+        status: () => this.request("GET", "/v1/streams/private/status"),
+        stop: () => this.request("POST", "/v1/streams/private/stop", { body: {} }),
+      },
     };
     this.events = {
       subscribe: (onEvent, options = {}) => this.subscribe(onEvent, options),

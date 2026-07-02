@@ -1,9 +1,13 @@
 import crypto from "node:crypto";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import WebSocket from "ws";
 import { credentialPath } from "../lib/config.mjs";
 import { parseEnvFile } from "../lib/env.mjs";
 import { configureUndiciProxy } from "../lib/proxy.mjs";
 
 const DEFAULT_REST_BASE_URL = "https://www.okx.com";
+const DEFAULT_WS_PRIVATE_BASE_URL = "wss://ws.okx.com:8443/ws/v5/private";
+const DEFAULT_WS_PRIVATE_SANDBOX_BASE_URL = "wss://wspap.okx.com:8443/ws/v5/private";
 
 export class OkxRestExchange {
   constructor({ workspace, config }) {
@@ -27,6 +31,78 @@ export class OkxRestExchange {
       env,
       pathname: "/api/v5/market/candles",
       query: { instId, bar, limit },
+      privateRequest: false,
+    }).then((payload) => payload.data || []);
+  }
+
+  async books({ env, instId, sz } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/market/books",
+      query: { instId, sz },
+      privateRequest: false,
+    }).then((payload) => payload.data?.[0] || null);
+  }
+
+  async trades({ env, instId, limit } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/market/trades",
+      query: { instId, limit },
+      privateRequest: false,
+    }).then((payload) => payload.data || []);
+  }
+
+  async tradesHistory({ env, instId, type, after, before, limit } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/market/history-trades",
+      query: { instId, type, after, before, limit },
+      privateRequest: false,
+    }).then((payload) => payload.data || []);
+  }
+
+  async fundingRate({ env, instId } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/public/funding-rate",
+      query: { instId },
+      privateRequest: false,
+    }).then((payload) => payload.data?.[0] || null);
+  }
+
+  async fundingRateHistory({ env, instId, after, before, limit } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/public/funding-rate-history",
+      query: { instId, after, before, limit },
+      privateRequest: false,
+    }).then((payload) => payload.data || []);
+  }
+
+  async openInterest({ env, instType = "SWAP", instId, uly, instFamily } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/public/open-interest",
+      query: { instType, instId, uly, instFamily },
+      privateRequest: false,
+    }).then((payload) => payload.data || []);
+  }
+
+  async markPrice({ env, instType = "SWAP", instId, uly, instFamily } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/public/mark-price",
+      query: { instType, instId, uly, instFamily },
+      privateRequest: false,
+    }).then((payload) => payload.data || []);
+  }
+
+  async indexTickers({ env, quoteCcy, instId } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/market/index-tickers",
+      query: { quoteCcy, instId },
       privateRequest: false,
     }).then((payload) => payload.data || []);
   }
@@ -68,6 +144,61 @@ export class OkxRestExchange {
     }).then((payload) => payload.data || []);
   }
 
+  async bills({
+    env,
+    instType,
+    ccy,
+    mgnMode,
+    ctType,
+    type,
+    subType,
+    after,
+    before,
+    limit,
+  } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/account/bills",
+      query: { instType, ccy, mgnMode, ctType, type, subType, after, before, limit },
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
+  }
+
+  async maxSize({ env, instId, tdMode = "cash", ccy, px, leverage, unSpotOffset } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/account/max-size",
+      query: { instId, tdMode, ccy, px, leverage, unSpotOffset },
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || payload.data || null);
+  }
+
+  async maxAvailSize({
+    env,
+    instId,
+    tdMode = "cash",
+    ccy,
+    reduceOnly,
+    unSpotOffset,
+    quickMgnType,
+  } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/account/max-avail-size",
+      query: { instId, tdMode, ccy, reduceOnly, unSpotOffset, quickMgnType },
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || payload.data || null);
+  }
+
+  async feeRates({ env, instType = "SPOT", instId, uly, instFamily } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/account/trade-fee",
+      query: { instType, instId, uly, instFamily },
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || payload.data || null);
+  }
+
   async openOrders({ env, instType = "SPOT", instId } = {}) {
     return this.okxGet({
       env,
@@ -84,6 +215,15 @@ export class OkxRestExchange {
       query: { instType, instId, state, after, before, limit },
       privateRequest: true,
     }).then((payload) => payload.data || []);
+  }
+
+  async getOrder({ env, instId, ordId, clOrdId } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/trade/order",
+      query: { instId, ordId, clOrdId },
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || null);
   }
 
   async openAlgoOrders({
@@ -143,6 +283,15 @@ export class OkxRestExchange {
     }).then((payload) => payload.data || []);
   }
 
+  async fillsHistory({ env, instType, instId, ordId, after, before, limit } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/trade/fills-history",
+      query: { instType, instId, ordId, after, before, limit },
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
+  }
+
   async previewOrder({ env, ...order }) {
     const body = {
       tdMode: order.tdMode || "cash",
@@ -171,12 +320,76 @@ export class OkxRestExchange {
     }).then((payload) => payload.data?.[0] || null);
   }
 
+  async amendOrder({ env, ...order }) {
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/amend-order",
+      body: order,
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || null);
+  }
+
   async cancelOrder({ env, ...order }) {
     return this.okxRequest({
       env,
       method: "POST",
       pathname: "/api/v5/trade/cancel-order",
       body: order,
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || null);
+  }
+
+  async placeBatchOrders({ env, orders = [] } = {}) {
+    const body = orders.map((order) => ({
+      tdMode: order.tdMode || "cash",
+      ...order,
+    }));
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/batch-orders",
+      body,
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
+  }
+
+  async amendBatchOrders({ env, orders = [] } = {}) {
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/amend-batch-orders",
+      body: orders,
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
+  }
+
+  async cancelBatchOrders({ env, orders = [] } = {}) {
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/cancel-batch-orders",
+      body: orders,
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
+  }
+
+  async cancelAllAfter({ env, timeOut } = {}) {
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/cancel-all-after",
+      body: { timeOut },
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || payload.data || null);
+  }
+
+  async closePosition({ env, ...position }) {
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/close-position",
+      body: position,
       privateRequest: true,
     }).then((payload) => payload.data?.[0] || null);
   }
@@ -214,6 +427,112 @@ export class OkxRestExchange {
       body,
       privateRequest: true,
     }).then((payload) => payload.data || []);
+  }
+
+  createPrivateStream({ env, channels = defaultPrivateChannels(), onEvent }) {
+    const credentials = this.loadCredentials(env);
+    const proxyUrl = configureUndiciProxy();
+    const wsUrl =
+      process.env.OKX_WS_PRIVATE_BASE_URL ||
+      (env === "sandbox" ? DEFAULT_WS_PRIVATE_SANDBOX_BASE_URL : DEFAULT_WS_PRIVATE_BASE_URL);
+    const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
+    const ws = new WebSocket(wsUrl, agent ? { agent } : undefined);
+    const startedAt = new Date().toISOString();
+    let status = "connecting";
+    let lastEventAt = null;
+    let lastError = null;
+
+    ws.on("open", () => {
+      status = "authenticating";
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      ws.send(
+        JSON.stringify({
+          op: "login",
+          args: [
+            {
+              apiKey: credentials.apiKey,
+              passphrase: credentials.passphrase,
+              timestamp,
+              sign: sign({
+                timestamp,
+                method: "GET",
+                requestPath: "/users/self/verify",
+                secretKey: credentials.secretKey,
+              }),
+            },
+          ],
+        }),
+      );
+    });
+
+    ws.on("message", (raw) => {
+      const text = raw.toString();
+      let payload;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        onEvent?.("okx.private.raw", { text });
+        return;
+      }
+      lastEventAt = new Date().toISOString();
+
+      if (payload.event === "login") {
+        if (payload.code === "0") {
+          status = "subscribing";
+          ws.send(JSON.stringify({ op: "subscribe", args: channels }));
+        } else {
+          status = "error";
+          lastError = payload;
+        }
+        onEvent?.("okx.private.login", payload);
+        return;
+      }
+
+      if (payload.event === "subscribe") {
+        status = "active";
+        onEvent?.("okx.private.subscribe", payload);
+        return;
+      }
+
+      if (payload.event === "error") {
+        status = "error";
+        lastError = payload;
+        onEvent?.("okx.private.error", payload);
+        return;
+      }
+
+      const channel = payload.arg?.channel || "message";
+      onEvent?.(`okx.private.${channel}`, payload);
+    });
+
+    ws.on("error", (error) => {
+      status = "error";
+      lastError = { message: error.message };
+      onEvent?.("okx.private.error", { message: error.message });
+    });
+
+    ws.on("close", (code, reason) => {
+      status = "closed";
+      onEvent?.("okx.private.close", { code, reason: reason.toString() });
+    });
+
+    return {
+      close() {
+        status = "closing";
+        ws.close();
+      },
+      status() {
+        return {
+          env,
+          status,
+          wsUrl,
+          channels,
+          startedAt,
+          lastEventAt,
+          lastError,
+        };
+      },
+    };
   }
 
   async okxGet(options) {
@@ -318,6 +637,15 @@ function buildRequestPath(pathname, query = {}) {
 
 function trimTrailingSlash(value) {
   return value.replace(/\/+$/, "");
+}
+
+function defaultPrivateChannels() {
+  return [
+    { channel: "account" },
+    { channel: "positions", instType: "ANY" },
+    { channel: "orders", instType: "ANY" },
+    { channel: "orders-algo", instType: "ANY" },
+  ];
 }
 
 function availableFromBalance(balance, { ccy } = {}) {

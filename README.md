@@ -145,20 +145,33 @@ Agents can also query and trade through the CLI without writing a strategy scrip
 npm run okx -- state
 npm run okx -- instruments --inst-type SPOT --inst-id BTC-USDT --env sandbox --source cli-check
 npm run okx -- market ticker --inst-id BTC-USDT --env sandbox --source cli-check
+npm run okx -- market books --inst-id BTC-USDT --size 5 --env sandbox --source cli-check
+npm run okx -- market trades --inst-id BTC-USDT --limit 20 --env sandbox --source cli-check
+npm run okx -- market funding-rate --inst-id BTC-USDT-SWAP --env sandbox --source cli-check
+npm run okx -- market open-interest --inst-id BTC-USDT-SWAP --env sandbox --source cli-check
 npm run okx -- account positions --env sandbox --source cli-check
 npm run okx -- account available --ccy USDT --env sandbox --source cli-check
 npm run okx -- account balance --env sandbox --source cli-check
+npm run okx -- account bills --limit 20 --env sandbox --source cli-check
+npm run okx -- account max-size --inst-id BTC-USDT --td-mode cash --env sandbox --source cli-check
+npm run okx -- account fee-rates --inst-id BTC-USDT --env sandbox --source cli-check
 npm run okx -- orders open --env sandbox --source cli-check
+npm run okx -- orders get --inst-id BTC-USDT --ord-id <order-id> --env sandbox --source cli-check
 npm run okx -- orders preview --inst-id BTC-USDT --side buy --type market --size 0.001 --env sandbox --source cli-test
 npm run okx -- orders history --inst-id BTC-USDT --env sandbox --source cli-check
 npm run okx -- orders algo-open --inst-id BTC-USDT --env sandbox --source cli-check
 npm run okx -- orders algo-history --inst-id BTC-USDT --env sandbox --source cli-check
 npm run okx -- fills --inst-id BTC-USDT --env sandbox --source cli-check
+npm run okx -- fills history --inst-id BTC-USDT --env sandbox --source cli-check
 npm run okx -- audit recent --limit 20 --env sandbox --source cli-check
 npm run okx -- orders place --inst-id BTC-USDT --side buy --type market --size 0.001 --env sandbox --source cli-test
+npm run okx -- orders amend --inst-id BTC-USDT --ord-id <order-id> --new-price 101 --env sandbox --source cli-test
 npm run okx -- orders cancel --inst-id BTC-USDT --ord-id <order-id> --env sandbox --source cli-test
+npm run okx -- orders batch-place --orders-json '[{"instId":"BTC-USDT","side":"buy","ordType":"limit","sz":"0.001","px":"100"}]' --env sandbox --source cli-test
+npm run okx -- orders cancel-all-after --timeout 30 --env sandbox --source cli-test
 npm run okx -- orders tp-sl --inst-id BTC-USDT --side sell --size 0.001 --tp-trigger-px 70000 --sl-trigger-px 62000 --env sandbox --source cli-protect
 npm run okx -- orders algo-cancel --inst-id BTC-USDT --algo-id <algo-id> --env sandbox --source cli-protect
+npm run okx -- streams private-start --channels account,positions,orders,orders-algo --env sandbox --source cli-stream
 ```
 
 CLI daemon requests default to `--env sandbox --source cli`. Pass `--env live` explicitly for live

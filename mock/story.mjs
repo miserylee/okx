@@ -63,6 +63,58 @@ try {
   ]);
   assert.equal(cliTicker.instId, "BTC-USDT");
 
+  const cliBooks = runCliJson([
+    "market",
+    "books",
+    "--inst-id",
+    "BTC-USDT",
+    "--size",
+    "2",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-books",
+  ]);
+  assert.equal(cliBooks.bids.length, 2);
+
+  const cliTrades = runCliJson([
+    "market",
+    "trades",
+    "--inst-id",
+    "BTC-USDT",
+    "--limit",
+    "2",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-trades",
+  ]);
+  assert.equal(cliTrades.length, 2);
+
+  const cliFundingRate = runCliJson([
+    "market",
+    "funding-rate",
+    "--inst-id",
+    "BTC-USDT-SWAP",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-funding-rate",
+  ]);
+  assert.equal(cliFundingRate.instId, "BTC-USDT-SWAP");
+
+  const cliOpenInterest = runCliJson([
+    "market",
+    "open-interest",
+    "--inst-id",
+    "BTC-USDT-SWAP",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-open-interest",
+  ]);
+  assert.equal(cliOpenInterest[0].instId, "BTC-USDT-SWAP");
+
   const cliBalance = runCliJson([
     "account",
     "balance",
@@ -94,6 +146,44 @@ try {
     "mock/cli-available",
   ]);
   assert.equal(cliAvailable.details[0].ccy, "USDT");
+
+  const cliBills = runCliJson([
+    "account",
+    "bills",
+    "--limit",
+    "2",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-bills",
+  ]);
+  assert.equal(cliBills.length, 2);
+
+  const cliMaxSize = runCliJson([
+    "account",
+    "max-size",
+    "--inst-id",
+    "BTC-USDT",
+    "--td-mode",
+    "cash",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-max-size",
+  ]);
+  assert.equal(cliMaxSize.instId, "BTC-USDT");
+
+  const cliFeeRates = runCliJson([
+    "account",
+    "fee-rates",
+    "--inst-id",
+    "BTC-USDT",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-fee-rates",
+  ]);
+  assert.equal(cliFeeRates.instId, "BTC-USDT");
 
   const cliPreview = runCliJson([
     "orders",
@@ -145,6 +235,36 @@ try {
   ]);
   assert.equal(cliOpenOrders.length, 1);
 
+  const cliOrderGet = runCliJson([
+    "orders",
+    "get",
+    "--inst-id",
+    "BTC-USDT",
+    "--ord-id",
+    cliOrder.ordId,
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-order-get",
+  ]);
+  assert.equal(cliOrderGet.ordId, cliOrder.ordId);
+
+  const cliOrderAmended = runCliJson([
+    "orders",
+    "amend",
+    "--inst-id",
+    "BTC-USDT",
+    "--ord-id",
+    cliOrder.ordId,
+    "--new-price",
+    "101",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-order-amend",
+  ]);
+  assert.equal(cliOrderAmended.px, "101");
+
   const cliCanceled = runCliJson([
     "orders",
     "cancel",
@@ -170,6 +290,78 @@ try {
     "mock/cli-history",
   ]);
   assert.ok(cliHistory.some((item) => item.ordId === cliOrder.ordId));
+
+  const cliBatchOrders = [
+    { instId: "BTC-USDT", side: "buy", ordType: "limit", sz: "0.01", px: "100" },
+    { instId: "ETH-USDT", side: "buy", ordType: "limit", sz: "0.1", px: "10" },
+  ];
+  const cliBatchPlaced = runCliJson([
+    "orders",
+    "batch-place",
+    "--orders-json",
+    JSON.stringify(cliBatchOrders),
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-batch-place",
+  ]);
+  assert.equal(cliBatchPlaced.length, 2);
+
+  const cliBatchAmended = runCliJson([
+    "orders",
+    "batch-amend",
+    "--orders-json",
+    JSON.stringify([
+      { instId: "BTC-USDT", ordId: cliBatchPlaced[0].ordId, newPx: "102" },
+      { instId: "ETH-USDT", ordId: cliBatchPlaced[1].ordId, newPx: "11" },
+    ]),
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-batch-amend",
+  ]);
+  assert.equal(cliBatchAmended[0].px, "102");
+
+  const cliBatchCanceled = runCliJson([
+    "orders",
+    "batch-cancel",
+    "--orders-json",
+    JSON.stringify([
+      { instId: "BTC-USDT", ordId: cliBatchPlaced[0].ordId },
+      { instId: "ETH-USDT", ordId: cliBatchPlaced[1].ordId },
+    ]),
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-batch-cancel",
+  ]);
+  assert.equal(cliBatchCanceled[0].state, "canceled");
+
+  const cliCancelAllAfter = runCliJson([
+    "orders",
+    "cancel-all-after",
+    "--timeout",
+    "30",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-cancel-all-after",
+  ]);
+  assert.equal(cliCancelAllAfter.timeOut, "30");
+
+  const cliClosePosition = runCliJson([
+    "orders",
+    "close-position",
+    "--inst-id",
+    "BTC-USDT-SWAP",
+    "--mgn-mode",
+    "cross",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-close-position",
+  ]);
+  assert.equal(cliClosePosition.state, "closed");
 
   const cliAlgoOrder = runCliJson([
     "orders",
@@ -262,6 +454,36 @@ try {
   ]);
   assert.ok(cliAlgoHistory.some((item) => item.algoId === cliAlgoOrder.algoId));
 
+  const cliStreamStart = runCliJson([
+    "streams",
+    "private-start",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-stream-start",
+  ]);
+  assert.equal(cliStreamStart.status, "active");
+
+  const cliStreamStatus = runCliJson([
+    "streams",
+    "private-status",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-stream-status",
+  ]);
+  assert.equal(cliStreamStatus.status, "active");
+
+  const cliStreamStop = runCliJson([
+    "streams",
+    "private-stop",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-stream-stop",
+  ]);
+  assert.equal(cliStreamStop.status, "stopped");
+
   const okx = await connectOkxDaemon(traderName, {
     env: "sandbox",
     source: "mock/story.mjs",
@@ -288,6 +510,30 @@ try {
   const candles = await okx.market.candles("BTC-USDT", { bar: "1m", limit: 3 });
   assert.equal(candles.length, 3);
 
+  const books = await okx.market.books("BTC-USDT", { sz: 2 });
+  assert.equal(books.asks.length, 2);
+
+  const recentTrades = await okx.market.trades("BTC-USDT", { limit: 2 });
+  assert.equal(recentTrades.length, 2);
+
+  const tradeHistory = await okx.market.tradesHistory("BTC-USDT", { limit: 2 });
+  assert.equal(tradeHistory.length, 2);
+
+  const fundingRate = await okx.market.fundingRate("BTC-USDT-SWAP");
+  assert.equal(fundingRate.instId, "BTC-USDT-SWAP");
+
+  const fundingRateHistory = await okx.market.fundingRateHistory("BTC-USDT-SWAP", { limit: 2 });
+  assert.equal(fundingRateHistory.length, 2);
+
+  const openInterest = await okx.market.openInterest({ instId: "BTC-USDT-SWAP" });
+  assert.equal(openInterest[0].instId, "BTC-USDT-SWAP");
+
+  const markPrice = await okx.market.markPrice({ instId: "BTC-USDT-SWAP" });
+  assert.equal(markPrice[0].instId, "BTC-USDT-SWAP");
+
+  const indexTickers = await okx.market.indexTickers({ instId: "BTC-USDT" });
+  assert.equal(indexTickers[0].instId, "BTC-USDT");
+
   const balance = await okx.account.balance();
   assert.ok(balance.details.some((item) => item.ccy === "USDT"));
 
@@ -296,6 +542,18 @@ try {
 
   const positions = await okx.account.positions();
   assert.ok(positions.some((item) => item.instId === "BTC-USDT"));
+
+  const bills = await okx.account.bills({ limit: 2 });
+  assert.equal(bills.length, 2);
+
+  const maxSize = await okx.account.maxSize({ instId: "BTC-USDT" });
+  assert.equal(maxSize.instId, "BTC-USDT");
+
+  const maxAvailSize = await okx.account.maxAvailSize({ instId: "BTC-USDT" });
+  assert.equal(maxAvailSize.instId, "BTC-USDT");
+
+  const feeRates = await okx.account.feeRates({ instId: "BTC-USDT" });
+  assert.equal(feeRates.instId, "BTC-USDT");
 
   const preview = await okx.orders.preview({
     instId: "BTC-USDT",
@@ -312,6 +570,17 @@ try {
 
   const fills = await okx.fills.list({ instId: "BTC-USDT", ordId: marketOrder.ordId });
   assert.equal(fills.length, 1);
+
+  const fillsHistory = await okx.fills.history({ instId: "BTC-USDT", ordId: marketOrder.ordId });
+  assert.equal(fillsHistory.length, 1);
+
+  const streamStart = await okx.streams.private.start();
+  assert.equal(streamStart.status, "active");
+  await waitFor(() => events.some((event) => event.type === "okx.private.account"));
+  const streamStatus = await okx.streams.private.status();
+  assert.equal(streamStatus.status, "active");
+  const streamStop = await okx.streams.private.stop();
+  assert.equal(streamStop.status, "stopped");
 
   runCli(["daemon", "pause", "--reason", "mock story cli pause"], { silent: true });
   assert.equal((await okx.state()).state, "paused");
@@ -372,6 +641,16 @@ try {
   });
   assert.equal(limitOrder.state, "live");
 
+  const fetchedLimitOrder = await okx.orders.get({ instId: "BTC-USDT", ordId: limitOrder.ordId });
+  assert.equal(fetchedLimitOrder.ordId, limitOrder.ordId);
+
+  const amendedLimitOrder = await okx.orders.amend({
+    instId: "BTC-USDT",
+    ordId: limitOrder.ordId,
+    newPx: "103",
+  });
+  assert.equal(amendedLimitOrder.px, "103");
+
   const openOrders = await okx.orders.open({ instId: "BTC-USDT" });
   assert.equal(openOrders.length, 1);
 
@@ -383,6 +662,33 @@ try {
 
   const history = await okx.orders.history({ instId: "BTC-USDT" });
   assert.ok(history.some((item) => item.ordId === limitOrder.ordId));
+
+  const sdkBatchPlaced = await okx.orders.batch.place([
+    { instId: "BTC-USDT", side: "buy", ordType: "limit", sz: "0.01", px: "100" },
+    { instId: "ETH-USDT", side: "buy", ordType: "limit", sz: "0.1", px: "10" },
+  ]);
+  assert.equal(sdkBatchPlaced.length, 2);
+
+  const sdkBatchAmended = await okx.orders.batch.amend([
+    { instId: "BTC-USDT", ordId: sdkBatchPlaced[0].ordId, newPx: "104" },
+    { instId: "ETH-USDT", ordId: sdkBatchPlaced[1].ordId, newPx: "12" },
+  ]);
+  assert.equal(sdkBatchAmended[0].px, "104");
+
+  const sdkBatchCanceled = await okx.orders.batch.cancel([
+    { instId: "BTC-USDT", ordId: sdkBatchPlaced[0].ordId },
+    { instId: "ETH-USDT", ordId: sdkBatchPlaced[1].ordId },
+  ]);
+  assert.equal(sdkBatchCanceled[0].state, "canceled");
+
+  const cancelAllAfter = await okx.orders.cancelAllAfter(0);
+  assert.equal(cancelAllAfter.timeOut, "0");
+
+  const closedPosition = await okx.orders.closePosition({
+    instId: "BTC-USDT-SWAP",
+    mgnMode: "cross",
+  });
+  assert.equal(closedPosition.state, "closed");
 
   const auditRecent = await okx.audit.recent({ limit: 20 });
   assert.ok(auditRecent.records.length > 0);
@@ -421,16 +727,35 @@ try {
     "instrument.get",
     "market.ticker",
     "market.candles",
+    "market.books",
+    "market.trades",
+    "market.tradesHistory",
+    "market.fundingRate",
+    "market.fundingRateHistory",
+    "market.openInterest",
+    "market.markPrice",
+    "market.indexTickers",
     "account.balance",
     "account.positions",
     "account.available",
+    "account.bills",
+    "account.maxSize",
+    "account.maxAvailSize",
+    "account.feeRates",
     "order.preview",
     "order.place",
+    "order.get",
+    "order.amend",
     "control.pause",
     "control.resume",
     "orders.open",
     "orders.history",
     "order.cancel",
+    "orders.batch.place",
+    "orders.batch.amend",
+    "orders.batch.cancel",
+    "order.cancelAllAfter",
+    "position.close",
     "algo.open",
     "algo.history",
     "algo.get",
@@ -438,6 +763,10 @@ try {
     "algo.amend",
     "algo.cancel",
     "fills.list",
+    "fills.history",
+    "stream.private.start",
+    "stream.private.status",
+    "stream.private.stop",
     "audit.recent",
   ]) {
     assert.ok(kinds.includes(required), `Missing audit kind: ${required}`);
@@ -536,6 +865,17 @@ async function assertPausedWrite(okx) {
         sz: "0.002",
         triggerPx: "58000",
       }),
+    (error) => error.status === 423 && /paused/i.test(error.message),
+  );
+  await assert.rejects(
+    () =>
+      okx.orders.batch.place([
+        { instId: "BTC-USDT", side: "buy", ordType: "limit", sz: "0.01", px: "100" },
+      ]),
+    (error) => error.status === 423 && /paused/i.test(error.message),
+  );
+  await assert.rejects(
+    () => okx.orders.closePosition({ instId: "BTC-USDT-SWAP", mgnMode: "cross" }),
     (error) => error.status === 423 && /paused/i.test(error.message),
   );
 }

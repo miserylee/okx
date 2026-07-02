@@ -54,6 +54,96 @@ export class MockExchange {
     }));
   }
 
+  async books({ instId, sz = 5 } = {}) {
+    const count = Math.max(1, Math.min(Number(sz) || 5, 50));
+    return {
+      instId,
+      asks: Array.from({ length: count }, (_, index) => [
+        String(65001 + index),
+        String(0.5 + index / 10),
+        "0",
+        "1",
+      ]),
+      bids: Array.from({ length: count }, (_, index) => [
+        String(64999 - index),
+        String(0.4 + index / 10),
+        "0",
+        "1",
+      ]),
+      ts: String(Date.now()),
+    };
+  }
+
+  async trades({ instId, limit = 10 } = {}) {
+    const count = Math.max(1, Math.min(Number(limit) || 10, 100));
+    return Array.from({ length: count }, (_, index) => ({
+      instId,
+      tradeId: `trade-${index + 1}`,
+      px: String(65000 + index),
+      sz: "0.01",
+      side: index % 2 === 0 ? "buy" : "sell",
+      ts: String(Date.now() - index * 1000),
+    }));
+  }
+
+  async tradesHistory(query = {}) {
+    return this.trades(query);
+  }
+
+  async fundingRate({ instId } = {}) {
+    return {
+      instId,
+      fundingRate: "0.0001",
+      nextFundingRate: "0.00011",
+      fundingTime: String(Date.now() + 8 * 60 * 60 * 1000),
+      ts: String(Date.now()),
+    };
+  }
+
+  async fundingRateHistory({ instId, limit = 3 } = {}) {
+    const count = Math.max(1, Math.min(Number(limit) || 3, 100));
+    return Array.from({ length: count }, (_, index) => ({
+      instId,
+      fundingRate: String(0.0001 - index * 0.00001),
+      fundingTime: String(Date.now() - index * 8 * 60 * 60 * 1000),
+    }));
+  }
+
+  async openInterest({ instType = "SWAP", instId } = {}) {
+    return [
+      {
+        instType,
+        instId: instId || "BTC-USDT-SWAP",
+        oi: "12345",
+        oiCcy: "BTC",
+        ts: String(Date.now()),
+      },
+    ];
+  }
+
+  async markPrice({ instType = "SWAP", instId } = {}) {
+    return [
+      {
+        instType,
+        instId: instId || "BTC-USDT-SWAP",
+        markPx: "65000.5",
+        ts: String(Date.now()),
+      },
+    ];
+  }
+
+  async indexTickers({ instId } = {}) {
+    return [
+      {
+        instId: instId || "BTC-USDT",
+        idxPx: "65000.3",
+        high24h: "66000",
+        low24h: "64000",
+        ts: String(Date.now()),
+      },
+    ];
+  }
+
   async balance() {
     return {
       totalEq: "100000",
@@ -110,13 +200,63 @@ export class MockExchange {
     return positions.filter((item) => !instId || item.instId === instId);
   }
 
-  async openOrders() {
-    return this.orders.filter((order) => order.state === "live");
+  async bills({ ccy, limit = 10 } = {}) {
+    const count = Math.max(1, Math.min(Number(limit) || 10, 100));
+    return Array.from({ length: count }, (_, index) => ({
+      billId: `bill-${index + 1}`,
+      ccy: ccy || "USDT",
+      balChg: index === 0 ? "-65" : "0.5",
+      fee: index === 0 ? "-0.01" : "0",
+      type: "2",
+      subType: "1",
+      ts: String(Date.now() - index * 60_000),
+    }));
+  }
+
+  async maxSize({ instId, tdMode = "cash" } = {}) {
+    return {
+      instId,
+      tdMode,
+      maxBuy: "1.5",
+      maxSell: "1",
+    };
+  }
+
+  async maxAvailSize({ instId, tdMode = "cash" } = {}) {
+    return {
+      instId,
+      tdMode,
+      availBuy: "1.4",
+      availSell: "1",
+    };
+  }
+
+  async feeRates({ instType = "SPOT", instId } = {}) {
+    return {
+      instType,
+      instId,
+      maker: "-0.0008",
+      taker: "-0.001",
+    };
+  }
+
+  async openOrders({ instId } = {}) {
+    return this.orders.filter((order) => order.state === "live" && (!instId || order.instId === instId));
   }
 
   async orderHistory({ instId, state } = {}) {
     return this.orders.filter(
       (order) => (!instId || order.instId === instId) && (!state || order.state === state),
+    );
+  }
+
+  async getOrder({ instId, ordId, clOrdId } = {}) {
+    return (
+      this.orders.find(
+        (order) =>
+          (!instId || order.instId === instId) &&
+          ((ordId && order.ordId === ordId) || (clOrdId && order.clOrdId === clOrdId)),
+      ) || null
     );
   }
 
@@ -157,6 +297,10 @@ export class MockExchange {
     return this.fillsLog.filter(
       (fill) => (!instId || fill.instId === instId) && (!ordId || fill.ordId === ordId),
     );
+  }
+
+  async fillsHistory(query = {}) {
+    return this.fills(query);
   }
 
   async previewOrder(order) {
@@ -210,6 +354,22 @@ export class MockExchange {
     return created;
   }
 
+  async amendOrder(order) {
+    const existing = await this.getOrder(order);
+    if (!existing) {
+      throw new Error(`Mock order not found: ${order.ordId || order.clOrdId || "(missing id)"}`);
+    }
+    if (order.newSz || order.newSize) existing.sz = order.newSz || order.newSize;
+    if (order.newPx || order.newPrice) existing.px = order.newPx || order.newPrice;
+    existing.uTime = String(Date.now());
+    return {
+      ...existing,
+      reqId: order.reqId,
+      sCode: "0",
+      sMsg: "",
+    };
+  }
+
   async cancelOrder({ instId, ordId, clOrdId }) {
     const order = this.orders.find(
       (item) =>
@@ -222,6 +382,37 @@ export class MockExchange {
     order.state = "canceled";
     order.canceledAt = String(Date.now());
     return order;
+  }
+
+  async placeBatchOrders({ orders = [] } = {}) {
+    return Promise.all(orders.map((order) => this.placeOrder(order)));
+  }
+
+  async amendBatchOrders({ orders = [] } = {}) {
+    return Promise.all(orders.map((order) => this.amendOrder(order)));
+  }
+
+  async cancelBatchOrders({ orders = [] } = {}) {
+    return Promise.all(orders.map((order) => this.cancelOrder(order)));
+  }
+
+  async cancelAllAfter({ timeOut } = {}) {
+    this.cancelAllAfterTimeout = timeOut;
+    return {
+      triggerTime: timeOut === "0" || timeOut === 0 ? "" : String(Date.now() + Number(timeOut) * 1000),
+      ts: String(Date.now()),
+      timeOut: String(timeOut),
+    };
+  }
+
+  async closePosition(position) {
+    return {
+      instId: position.instId,
+      posSide: position.posSide || "",
+      mgnMode: position.mgnMode,
+      state: "closed",
+      ts: String(Date.now()),
+    };
   }
 
   async placeAlgoOrder(order) {
@@ -288,5 +479,40 @@ export class MockExchange {
         };
       }),
     );
+  }
+
+  createPrivateStream({ env, channels = [], onEvent }) {
+    const startedAt = new Date().toISOString();
+    let status = "active";
+    let lastEventAt = null;
+    const timer = setTimeout(() => {
+      if (status !== "active") return;
+      lastEventAt = new Date().toISOString();
+      onEvent?.("okx.private.account", {
+        arg: { channel: "account" },
+        data: [
+          {
+            totalEq: "100000",
+            ts: String(Date.now()),
+          },
+        ],
+      });
+    }, 50);
+    return {
+      close() {
+        status = "closed";
+        clearTimeout(timer);
+      },
+      status() {
+        return {
+          env,
+          status,
+          channels,
+          startedAt,
+          lastEventAt,
+          lastError: null,
+        };
+      },
+    };
   }
 }
