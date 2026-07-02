@@ -47,6 +47,46 @@ async function main() {
     return;
   }
 
+  if (command === "state") {
+    const options = parseOptions([subcommand, ...rest].filter(Boolean));
+    if (options.help) {
+      printStateHelp();
+      return;
+    }
+    await stateCommand(options);
+    return;
+  }
+
+  if (command === "market") {
+    const options = parseOptions(rest);
+    if (!subcommand || subcommand === "--help" || subcommand === "-h" || options.help) {
+      printMarketHelp();
+      return;
+    }
+    await marketCommand(subcommand, options);
+    return;
+  }
+
+  if (command === "account") {
+    const options = parseOptions(rest);
+    if (!subcommand || subcommand === "--help" || subcommand === "-h" || options.help) {
+      printAccountHelp();
+      return;
+    }
+    await accountCommand(subcommand, options);
+    return;
+  }
+
+  if (command === "orders") {
+    const options = parseOptions(rest);
+    if (!subcommand || subcommand === "--help" || subcommand === "-h" || options.help) {
+      printOrdersHelp();
+      return;
+    }
+    await ordersCommand(subcommand, options);
+    return;
+  }
+
   throw new Error(`Unknown command: ${command}`);
 }
 
@@ -122,6 +162,141 @@ async function daemonCommand(subcommand, options) {
   }
 
   throw new Error(`Unknown daemon subcommand: ${subcommand}`);
+}
+
+async function stateCommand(options) {
+  const payload = await daemonRequest({
+    workspace: options.workspace,
+    method: "GET",
+    pathname: "/v1/state",
+    options,
+  });
+  printJson(payload.data ?? payload);
+}
+
+async function marketCommand(subcommand, options) {
+  if (subcommand === "ticker") {
+    const instId = requireOption(options, "instId", "--inst-id");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/market/ticker",
+      query: { instId },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "candles") {
+    const instId = requireOption(options, "instId", "--inst-id");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/market/candles",
+      query: {
+        instId,
+        bar: options.bar || "1m",
+        limit: options.limit || "100",
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  throw new Error(`Unknown market subcommand: ${subcommand}`);
+}
+
+async function accountCommand(subcommand, options) {
+  if (subcommand === "balance") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/account/balance",
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  throw new Error(`Unknown account subcommand: ${subcommand}`);
+}
+
+async function ordersCommand(subcommand, options) {
+  if (subcommand === "open") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/orders/open",
+      query: {
+        instId: options.instId,
+        instType: options.instType,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "place") {
+    const body = orderPlaceBody(options);
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/place",
+      body,
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "cancel") {
+    const body = orderCancelBody(options);
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/cancel",
+      body,
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  throw new Error(`Unknown orders subcommand: ${subcommand}`);
+}
+
+async function daemonRequest({ workspace, method, pathname, query = {}, body, options = {} }) {
+  const root = resolveWorkspace(workspace || process.cwd());
+  const config = loadWorkspaceConfig(root);
+  const registry = readRegistry(config.name);
+  if (!registry?.baseUrl) {
+    throw new Error(`Daemon is not running for ${config.name}. Run: okx daemon start`);
+  }
+
+  const url = new URL(`${registry.baseUrl}${pathname}`);
+  for (const [key, value] of Object.entries(query)) {
+    if (value != null && value !== "") url.searchParams.set(key, String(value));
+  }
+
+  const env = options.env || process.env.OKX_TRADER_ENV || process.env.OKX_ENV || "sandbox";
+  const source = options.source || "cli";
+  const init = {
+    method,
+    timeoutMs: Number(options.timeoutMs || 10_000),
+    headers: {
+      "x-okx-env": env,
+      "x-okx-source": source,
+    },
+  };
+  if (body) {
+    init.headers["Content-Type"] = "application/json";
+    init.body = JSON.stringify(body);
+  }
+
+  return fetchJsonWithTimeout(url.toString(), init);
 }
 
 async function startDaemon(workspace) {
@@ -312,10 +487,57 @@ function updatePackageJson(workspace) {
     },
     dependencies: {
       ...(existing.dependencies || {}),
-      [PACKAGE_NAME]: existing.dependencies?.[PACKAGE_NAME] || "^0.1.1",
+      [PACKAGE_NAME]: existing.dependencies?.[PACKAGE_NAME] || "^0.1.2",
     },
   };
   fs.writeFileSync(filePath, `${JSON.stringify(next, null, 2)}\n`);
+}
+
+function orderPlaceBody(options) {
+  const instId = requireOption(options, "instId", "--inst-id");
+  const side = requireOption(options, "side", "--side");
+  const ordType = options.ordType || options.type || "market";
+  const sz = options.sz || options.size || options.amount;
+  if (!sz) throw new Error("orders place requires --size <amount>");
+
+  const body = {
+    instId,
+    side,
+    ordType,
+    sz,
+  };
+  if (options.price || options.px) body.px = options.price || options.px;
+  if (options.tdMode) body.tdMode = options.tdMode;
+  if (options.clOrdId || options.clientOrderId) {
+    body.clOrdId = options.clOrdId || options.clientOrderId;
+  }
+  return body;
+}
+
+function orderCancelBody(options) {
+  const instId = requireOption(options, "instId", "--inst-id");
+  const ordId = options.ordId || options.orderId;
+  const clOrdId = options.clOrdId || options.clientOrderId;
+  if (!ordId && !clOrdId) {
+    throw new Error("orders cancel requires --ord-id <id> or --client-order-id <id>");
+  }
+  return {
+    instId,
+    ...(ordId ? { ordId } : {}),
+    ...(clOrdId ? { clOrdId } : {}),
+  };
+}
+
+function requireOption(options, key, label) {
+  const value = options[key];
+  if (value == null || value === true || value === "") {
+    throw new Error(`Missing required option: ${label}`);
+  }
+  return value;
+}
+
+function printJson(value) {
+  console.log(JSON.stringify(value, null, 2));
 }
 
 function updateAgentsGuide(workspace) {
@@ -390,6 +612,7 @@ function printHelp() {
 Usage:
   okx context
   okx init --name <ai-trader-name>
+  okx state
   okx daemon start
   okx daemon stop
   okx daemon restart
@@ -397,9 +620,17 @@ Usage:
   okx daemon doctor
   okx daemon pause --reason "..."
   okx daemon resume --reason "..."
+  okx market ticker --inst-id BTC-USDT
+  okx market candles --inst-id BTC-USDT --bar 1m --limit 100
+  okx account balance
+  okx orders open
+  okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
+  okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
 
 Options:
   --workspace <path>  Use a workspace other than the current directory.
+  --env <env>         Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>    Audit source label. Defaults to cli.
 `);
 }
 
@@ -432,6 +663,73 @@ Options:
   --workspace <path>  Workspace directory. Defaults to the current directory.
   --reason <text>     Reason recorded for pause/resume operations.
   -h, --help          Show this help.
+`);
+}
+
+function printStateHelp() {
+  console.log(`Read daemon execution state through the daemon API
+
+Usage:
+  okx state [--env sandbox] [--source cli]
+
+Options:
+  --workspace <path>  Workspace directory. Defaults to the current directory.
+  --env <env>         Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>    Audit source label. Defaults to cli.
+`);
+}
+
+function printMarketHelp() {
+  console.log(`Read market data through the daemon API
+
+Usage:
+  okx market ticker --inst-id BTC-USDT [--env sandbox] [--source cli]
+  okx market candles --inst-id BTC-USDT --bar 1m --limit 100
+
+Options:
+  --workspace <path>  Workspace directory. Defaults to the current directory.
+  --env <env>         Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>    Audit source label. Defaults to cli.
+  --inst-id <id>      OKX instrument id, for example BTC-USDT.
+  --bar <bar>         Candle bar. Defaults to 1m.
+  --limit <count>     Candle count. Defaults to 100.
+`);
+}
+
+function printAccountHelp() {
+  console.log(`Read account data through the daemon API
+
+Usage:
+  okx account balance [--env sandbox] [--source cli]
+
+Options:
+  --workspace <path>  Workspace directory. Defaults to the current directory.
+  --env <env>         Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>    Audit source label. Defaults to cli.
+`);
+}
+
+function printOrdersHelp() {
+  console.log(`Trade through the daemon API
+
+Usage:
+  okx orders open [--inst-id BTC-USDT]
+  okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
+  okx orders place --inst-id BTC-USDT --side buy --type limit --size 0.001 --price 100
+  okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
+
+Options:
+  --workspace <path>       Workspace directory. Defaults to the current directory.
+  --env <env>              Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>         Audit source label. Defaults to cli.
+  --inst-id <id>           OKX instrument id, for example BTC-USDT.
+  --side <buy|sell>        Order side.
+  --type <market|limit>    Order type. Defaults to market.
+  --size <amount>          Order size.
+  --price <price>          Limit order price.
+  --td-mode <mode>         OKX trade mode. Defaults in daemon adapter.
+  --ord-id <id>            Exchange order id for cancel.
+  --client-order-id <id>   Client order id for place/cancel.
 `);
 }
 

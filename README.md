@@ -138,6 +138,20 @@ Agents can load the built-in operating manual at any time:
 npm run okx -- context
 ```
 
+Agents can also query and trade through the CLI without writing a strategy script first:
+
+```powershell
+npm run okx -- state
+npm run okx -- market ticker --inst-id BTC-USDT --env sandbox --source cli-check
+npm run okx -- account balance --env sandbox --source cli-check
+npm run okx -- orders open --env sandbox --source cli-check
+npm run okx -- orders place --inst-id BTC-USDT --side buy --type market --size 0.001 --env sandbox --source cli-test
+npm run okx -- orders cancel --inst-id BTC-USDT --ord-id <order-id> --env sandbox --source cli-test
+```
+
+CLI daemon requests default to `--env sandbox --source cli`. Pass `--env live` explicitly for live
+trading.
+
 ## Mock Story
 
 Run the local end-to-end story:
@@ -147,4 +161,5 @@ npm run mock:story
 ```
 
 The story creates `mock/.tmp/workspace`, starts a daemon with the mock exchange adapter, verifies
-HTTP, SSE, SDK calls, pause/resume behavior, order rejection while paused, and JSONL audit records.
+HTTP, SSE, SDK calls, CLI daemon calls, pause/resume behavior, order rejection while paused, and
+JSONL audit records.

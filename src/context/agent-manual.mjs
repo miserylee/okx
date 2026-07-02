@@ -101,6 +101,23 @@ State model:
 The daemon does not enforce trade amount or frequency limits. Put strategy-specific limits in the
 strategy script when desired.
 
+## CLI Data And Trading
+
+Agents can call the daemon directly through the CLI. CLI daemon requests default to
+\`--env sandbox --source cli\`. Use \`--env live\` explicitly for live trading.
+
+\`\`\`bash
+npm run okx -- state
+npm run okx -- market ticker --inst-id BTC-USDT --env sandbox --source manual-check
+npm run okx -- market candles --inst-id BTC-USDT --bar 1m --limit 100
+npm run okx -- account balance --env sandbox --source balance-check
+npm run okx -- orders open --env sandbox --source order-review
+npm run okx -- orders place --inst-id BTC-USDT --side buy --type market --size 0.001 --env sandbox --source cli-test
+npm run okx -- orders cancel --inst-id BTC-USDT --ord-id <order-id> --env sandbox --source cli-test
+\`\`\`
+
+Prefer clear \`--source\` labels so audit logs explain why the CLI call happened.
+
 ## Audit And Handoff
 
 Every daemon operation is audited to \`logs/audit.jsonl\`, including sandbox reads. Use audit logs

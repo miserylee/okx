@@ -331,3 +331,15 @@
 - Decisions: Future pushes to `main` and `v*` tags run validation; publish happens only when
   `package.json` version is new on npm.
 - Open questions: Confirm the next GitHub Actions run publishes `okx-trader@0.1.0`.
+
+## Turn 25 - CLI Direct Daemon Operations - 2026-07-03 03:31 +08:00
+
+- User signal: The CLI should also be able to access the daemon so agents can directly fetch data
+  and buy/sell without writing a separate script first.
+- Agent work: Added CLI commands for daemon state, market ticker/candles, account balance, open
+  orders, placing orders, and canceling orders. CLI daemon requests carry `env` and `source` into
+  audit logs, defaulting to `sandbox` and `cli`.
+- Sources: conversation; daemon API implementation; mock story.
+- Decisions: CLI is both daemon management surface and direct agent operation surface; live CLI
+  trading requires explicit `--env live`; agents should pass meaningful `--source` labels.
+- Open questions: none.

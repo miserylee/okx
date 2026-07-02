@@ -133,6 +133,13 @@ okx daemon status
 okx daemon doctor
 okx daemon pause --reason "..."
 okx daemon resume --reason "..."
+okx state
+okx market ticker --inst-id BTC-USDT --env sandbox --source cli-check
+okx market candles --inst-id BTC-USDT --bar 1m --limit 100
+okx account balance --env sandbox --source cli-check
+okx orders open --env sandbox --source cli-check
+okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
+okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
 ```
 
 No `endpoint` command is needed in v1. Strategy scripts should normally use the Node SDK for
@@ -147,6 +154,10 @@ first durable reference inside a trading workspace.
 - `AGENTS.md`, with a short bootstrap instruction telling future agents to run
   `npm run okx -- context`
 - `package.json`, with an `okx` npm script and an `okx-trader` dependency
+
+CLI daemon operations default to `env=sandbox` and `source=cli`. Agents should pass clear
+`--source` labels for auditable direct operations and must pass `--env live` explicitly for live
+trading.
 
 ## Daemon API
 

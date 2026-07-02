@@ -37,6 +37,74 @@ try {
   assert.match(contextOutput, /npm run okx -- daemon start/);
   runCli(["daemon", "start"]);
 
+  const cliTicker = runCliJson([
+    "market",
+    "ticker",
+    "--inst-id",
+    "BTC-USDT",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-ticker",
+  ]);
+  assert.equal(cliTicker.instId, "BTC-USDT");
+
+  const cliBalance = runCliJson([
+    "account",
+    "balance",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-balance",
+  ]);
+  assert.ok(cliBalance.details.some((item) => item.ccy === "USDT"));
+
+  const cliOrder = runCliJson([
+    "orders",
+    "place",
+    "--inst-id",
+    "BTC-USDT",
+    "--side",
+    "buy",
+    "--type",
+    "limit",
+    "--size",
+    "0.01",
+    "--price",
+    "100",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-order",
+  ]);
+  assert.equal(cliOrder.state, "live");
+
+  const cliOpenOrders = runCliJson([
+    "orders",
+    "open",
+    "--inst-id",
+    "BTC-USDT",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-open",
+  ]);
+  assert.equal(cliOpenOrders.length, 1);
+
+  const cliCanceled = runCliJson([
+    "orders",
+    "cancel",
+    "--inst-id",
+    "BTC-USDT",
+    "--ord-id",
+    cliOrder.ordId,
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-cancel",
+  ]);
+  assert.equal(cliCanceled.state, "canceled");
+
   const okx = await connectOkxDaemon(traderName, {
     env: "sandbox",
     source: "mock/story.mjs",
@@ -117,6 +185,7 @@ try {
   ]) {
     assert.ok(kinds.includes(required), `Missing audit kind: ${required}`);
   }
+  assert.ok(auditRecords.some((record) => record.source === "mock/cli-order"));
   assert.ok(
     auditRecords.some(
       (record) => record.kind === "order.place" && record.error?.code === "DAEMON_PAUSED",
@@ -147,6 +216,10 @@ function runCli(args, { silent = false } = {}) {
   });
 }
 
+function runCliJson(args) {
+  return JSON.parse(runCli(args, { silent: true }));
+}
+
 function auditPath() {
   return path.join(workspace, "logs", "audit.jsonl");
 }
@@ -160,7 +233,7 @@ function configureMockExchange() {
 function assertWorkspaceBootstrapFiles() {
   const packageJson = JSON.parse(fs.readFileSync(path.join(workspace, "package.json"), "utf8"));
   assert.equal(packageJson.scripts.okx, "okx");
-  assert.equal(packageJson.dependencies["okx-trader"], "^0.1.1");
+  assert.equal(packageJson.dependencies["okx-trader"], "^0.1.2");
 
   const agents = fs.readFileSync(path.join(workspace, "AGENTS.md"), "utf8");
   assert.match(agents, /npm run okx -- context/);
