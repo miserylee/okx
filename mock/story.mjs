@@ -49,6 +49,16 @@ try {
   ]);
   assert.equal(cliTicker.instId, "BTC-USDT");
 
+  const cliWatchlist = runCliJson([
+    "watchlist",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-watchlist",
+  ]);
+  assert.equal(cliWatchlist.items.length, 2);
+  assert.equal(cliWatchlist.items[0].instId, "BTC-USDT");
+
   const cliBalance = runCliJson([
     "account",
     "balance",
@@ -120,6 +130,10 @@ try {
   const state = await okx.state();
   assert.equal(state.state, "active");
 
+  const watchlist = await okx.watchlist.list();
+  assert.equal(watchlist.items.length, 2);
+  assert.ok(watchlist.items.every((item) => item.enabled));
+
   const ticker = await okx.market.ticker("BTC-USDT");
   assert.equal(ticker.instId, "BTC-USDT");
 
@@ -174,6 +188,7 @@ try {
   const kinds = auditRecords.map((record) => record.kind);
   for (const required of [
     "state.get",
+    "watchlist.get",
     "market.ticker",
     "market.candles",
     "account.balance",
@@ -227,13 +242,25 @@ function auditPath() {
 function configureMockExchange() {
   const filePath = path.join(workspace, "okx.config.json");
   const config = JSON.parse(fs.readFileSync(filePath, "utf8"));
-  fs.writeFileSync(filePath, `${JSON.stringify({ ...config, exchange: "mock" }, null, 2)}\n`);
+  fs.writeFileSync(
+    filePath,
+    `${JSON.stringify(
+      {
+        ...config,
+        exchange: "mock",
+        watchlist: ["BTC-USDT", { instId: "ETH-USDT", label: "mock alt" }],
+      },
+      null,
+      2,
+    )}\n`,
+  );
 }
 
 function assertWorkspaceBootstrapFiles() {
   const packageJson = JSON.parse(fs.readFileSync(path.join(workspace, "package.json"), "utf8"));
+  const rootPackageJson = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"));
   assert.equal(packageJson.scripts.okx, "okx");
-  assert.equal(packageJson.dependencies["okx-trader"], "^0.1.2");
+  assert.equal(packageJson.dependencies["okx-trader"], `^${rootPackageJson.version}`);
 
   const agents = fs.readFileSync(path.join(workspace, "AGENTS.md"), "utf8");
   assert.match(agents, /npm run okx -- context/);

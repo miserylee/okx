@@ -23,6 +23,9 @@ export class OkxDaemonClient {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     this.timeoutMs = timeoutMs;
 
+    this.watchlist = {
+      list: () => this.request("GET", "/v1/watchlist"),
+    };
     this.market = {
       ticker: (instId) => this.request("GET", "/v1/market/ticker", { query: { instId } }),
       candles: (instId, options = {}) =>

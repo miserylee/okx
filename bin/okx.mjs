@@ -12,6 +12,9 @@ import { fetchJsonWithTimeout, readHealthyRegistry, readRegistry, removeRegistry
 import { runDaemon } from "../src/daemon/server.mjs";
 
 const cliPath = fileURLToPath(import.meta.url);
+const packageRoot = path.resolve(path.dirname(cliPath), "..");
+const packageInfo = readJsonFile(path.join(packageRoot, "package.json"));
+const packageVersion = packageInfo.version;
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -54,6 +57,18 @@ async function main() {
       return;
     }
     await stateCommand(options);
+    return;
+  }
+
+  if (command === "watchlist") {
+    const args = [subcommand, ...rest].filter(Boolean);
+    const options = parseOptions(args);
+    const action = subcommand?.startsWith("-") ? null : subcommand;
+    if (subcommand === "--help" || subcommand === "-h" || options.help) {
+      printWatchlistHelp();
+      return;
+    }
+    await watchlistCommand(action, options);
     return;
   }
 
@@ -172,6 +187,22 @@ async function stateCommand(options) {
     options,
   });
   printJson(payload.data ?? payload);
+}
+
+async function watchlistCommand(subcommand, options) {
+  const action = subcommand || "show";
+  if (action === "show" || action === "list") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/watchlist",
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  throw new Error(`Unknown watchlist subcommand: ${subcommand}`);
 }
 
 async function marketCommand(subcommand, options) {
@@ -487,7 +518,7 @@ function updatePackageJson(workspace) {
     },
     dependencies: {
       ...(existing.dependencies || {}),
-      [PACKAGE_NAME]: existing.dependencies?.[PACKAGE_NAME] || "^0.1.2",
+      [PACKAGE_NAME]: existing.dependencies?.[PACKAGE_NAME] || `^${packageVersion}`,
     },
   };
   fs.writeFileSync(filePath, `${JSON.stringify(next, null, 2)}\n`);
@@ -610,9 +641,16 @@ function printHelp() {
   console.log(`OKX AI trader daemon
 
 Usage:
+  okx <command> [options]
+
+Start here:
+  Agents should run "okx context" or "npm run okx -- context" before operating a workspace.
+
+Commands:
   okx context
   okx init --name <ai-trader-name>
   okx state
+  okx watchlist
   okx daemon start
   okx daemon stop
   okx daemon restart
@@ -671,6 +709,21 @@ function printStateHelp() {
 
 Usage:
   okx state [--env sandbox] [--source cli]
+
+Options:
+  --workspace <path>  Workspace directory. Defaults to the current directory.
+  --env <env>         Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>    Audit source label. Defaults to cli.
+`);
+}
+
+function printWatchlistHelp() {
+  console.log(`Read the workspace watchlist through the daemon API
+
+Usage:
+  okx watchlist [--env sandbox] [--source cli]
+  okx watchlist show [--env sandbox] [--source cli]
+  okx watchlist list [--env sandbox] [--source cli]
 
 Options:
   --workspace <path>  Workspace directory. Defaults to the current directory.

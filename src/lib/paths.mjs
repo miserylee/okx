@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.3";
 
 export function homeDir() {
   return process.env.HOME || process.env.USERPROFILE || os.homedir();

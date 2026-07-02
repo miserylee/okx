@@ -193,6 +193,16 @@ async function handleRequest(ctx) {
     });
   }
 
+  if (request.method === "GET" && pathname === "/v1/watchlist") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "watchlist.get",
+      context,
+      requestSnapshot: {},
+      operation: async () => ({ items: config.watchlist }),
+    });
+  }
+
   if (request.method === "POST" && pathname === "/v1/control/pause") {
     return audited(ctx, response, {
       kind: "control.pause",
@@ -402,6 +412,7 @@ function kindToMethod(kind) {
 function kindToPath(kind) {
   return {
     "state.get": "/v1/state",
+    "watchlist.get": "/v1/watchlist",
     "control.pause": "/v1/control/pause",
     "control.resume": "/v1/control/resume",
     "market.ticker": "/v1/market/ticker",

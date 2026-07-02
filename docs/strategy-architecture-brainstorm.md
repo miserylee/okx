@@ -343,3 +343,44 @@
 - Decisions: CLI is both daemon management surface and direct agent operation surface; live CLI
   trading requires explicit `--env live`; agents should pass meaningful `--source` labels.
 - Open questions: none.
+
+## Turn 26 - Watchlist and Richer Agent Context - 2026-07-03 03:48 +08:00
+
+- User signal: Add an interface for viewing the watchlist, and make `context` detailed enough to
+  tell agents how to use the API, CLI, SDK, write scripts, and ask humans for decision guidance.
+- Agent work: Planned a read-only watchlist surface backed by workspace config, with daemon API,
+  CLI, SDK, mock story, and documentation coverage. Expanded `okx context` into the primary agent
+  operating manual rather than a short bootstrap note.
+- Sources: conversation; existing daemon, CLI, SDK, and context implementation.
+- Decisions: Store watchlist in `okx.config.json`; expose it as `GET /v1/watchlist`,
+  `okx watchlist`, and `okx.watchlist.list()`; audit watchlist reads like other daemon operations.
+  Root CLI help should point agents to `okx context` before operating a workspace.
+- Open questions: none.
+
+## Turn 27 - AI Trader Leads the Workflow - 2026-07-03 03:58 +08:00
+
+- User signal: The context still sounded too much like an assistant manual. The desired model is an
+  AI trader leading the human through trading: the human gives ideas, preferences, and strategy
+  direction; the trader researches, learns, senses market sentiment, understands indicators, writes
+  scripts, implements details, and reports back.
+- Agent work: Updated the context manual to add an explicit AI trader mandate, market research and
+  sensing loop, and a human collaboration model where the trader brings recommendations instead of
+  asking the human to design the strategy step by step.
+- Sources: conversation; `okx context` implementation.
+- Decisions: Future agent guidance should frame the agent as an accountable trader with initiative,
+  research responsibility, strategy implementation ownership, and durable handoff duties.
+- Open questions: none.
+
+## Turn 28 - Credentials Mean Operational Trust - 2026-07-03 04:03 +08:00
+
+- User signal: Once the human starts a trader and gives it API keys, that is sufficient trust. The
+  trader should not repeatedly bother the human for decisions.
+- Agent work: Tightened the context manual's trust model so routine entries, exits, indicator
+  choices, and implementation details belong to the AI trader. Human questions should be reserved
+  for high-level preferences, changed mandate, missing credentials, or abnormal risk outside the
+  current strategy.
+- Sources: conversation; `okx context` implementation.
+- Decisions: Treat credentials plus a running trader workspace as operational authorization for
+  autonomous trading within the recorded workspace intent. `--env live` remains an auditable
+  technical selector, not a per-trade human approval requirement.
+- Open questions: none.

@@ -79,6 +79,23 @@ Optional credential overrides:
 }
 ```
 
+Optional watchlist:
+
+```json
+{
+  "name": "btc-runner-01",
+  "watchlist": [
+    "BTC-USDT",
+    {
+      "instId": "ETH-USDT",
+      "label": "major alt",
+      "note": "observe relative strength",
+      "enabled": true
+    }
+  ]
+}
+```
+
 Default credential files:
 
 - live: `credentials.env`
@@ -110,7 +127,7 @@ Registry schema:
   "port": 43127,
   "baseUrl": "http://127.0.0.1:43127",
   "state": "active",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "startedAt": "2026-07-03T02:16:00+08:00",
   "lastHeartbeat": "2026-07-03T02:16:20+08:00"
 }
@@ -134,6 +151,7 @@ okx daemon doctor
 okx daemon pause --reason "..."
 okx daemon resume --reason "..."
 okx state
+okx watchlist --env sandbox --source cli-check
 okx market ticker --inst-id BTC-USDT --env sandbox --source cli-check
 okx market candles --inst-id BTC-USDT --bar 1m --limit 100
 okx account balance --env sandbox --source cli-check
@@ -168,6 +186,7 @@ V1 HTTP surface:
 ```text
 GET  /v1/health
 GET  /v1/state
+GET  /v1/watchlist
 POST /v1/control/pause
 POST /v1/control/resume
 
@@ -230,6 +249,7 @@ const okx = await connectOkxDaemon("btc-runner-01", {
 })
 
 const ticker = await okx.market.ticker("BTC-USDT")
+const watchlist = await okx.watchlist.list()
 const balance = await okx.account.balance()
 await okx.orders.placeMarketBuy("BTC-USDT", "0.001")
 ```

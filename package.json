@@ -1,6 +1,6 @@
 {
   "name": "okx-trader",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "OKX AI trader daemon, CLI, and Node SDK.",
   "license": "UNLICENSED",
   "repository": {

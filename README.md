@@ -125,6 +125,7 @@ const okx = await connectOkxDaemon("btc-runner-01", {
   source: "strategies/example.mjs"
 })
 
+const watchlist = await okx.watchlist.list()
 const ticker = await okx.market.ticker("BTC-USDT")
 const balance = await okx.account.balance()
 ```
@@ -142,6 +143,7 @@ Agents can also query and trade through the CLI without writing a strategy scrip
 
 ```powershell
 npm run okx -- state
+npm run okx -- watchlist --env sandbox --source cli-check
 npm run okx -- market ticker --inst-id BTC-USDT --env sandbox --source cli-check
 npm run okx -- account balance --env sandbox --source cli-check
 npm run okx -- orders open --env sandbox --source cli-check
