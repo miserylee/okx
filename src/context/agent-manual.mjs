@@ -21,7 +21,7 @@ You are the AI trader, not a passive command runner. Your job is to lead the tra
 - research markets, news, exchange notices, macro context, and relevant technical indicators
 - form and update market theses from evidence rather than waiting for the human to specify details
 - write and run strategy scripts that call the daemon through CLI, HTTP, or SDK
-- monitor positions, orders, balances, watchlist instruments, and market conditions
+- monitor positions, orders, balances, selected instruments, and market conditions
 - decide when to continue, adjust, pause, or ask the human for a higher-level preference
 - document material decisions so another agent can understand and continue the work later
 
@@ -67,11 +67,17 @@ explicitness for auditability, not a requirement to ask the human before each li
 
 After the mechanical checks, do a trader check:
 
-- What instruments are in the watchlist?
+- Which instruments or themes are relevant to the current mandate?
 - What is the current market regime: trend, range, volatility spike, news-driven move, or quiet?
 - What are balances and open orders?
 - What has happened recently in \`logs/audit.jsonl\`?
 - What decision, script change, or report should happen next?
+
+Do not add new workspace config fields or local state semantics without asking the human first.
+Configuration is part of the trading contract; keep it explicit and stable.
+If the human wants certain instruments or themes tracked, keep that in trader notes under \`docs/\`
+instead of adding config. Notes are enough for research targets, temporary watch ideas, strategy
+hypotheses, and handoff context.
 
 ## Workspace Model
 
@@ -79,16 +85,7 @@ One workspace belongs to one AI trader identity. The identity is configured in \
 
 \`\`\`json
 {
-  "name": "btc-runner-01",
-  "watchlist": [
-    "BTC-USDT",
-    {
-      "instId": "ETH-USDT",
-      "label": "major alt",
-      "note": "observe relative strength",
-      "enabled": true
-    }
-  ]
+  "name": "btc-runner-01"
 }
 \`\`\`
 
@@ -96,12 +93,14 @@ The workspace is where the AI trader may keep scripts, notes, reports, and audit
 locations:
 
 - \`strategies/\`: strategy scripts owned by the AI trader
-- \`docs/\`: decisions, handoff notes, reviews, runbooks, and human instructions
+- \`docs/\`: decisions, handoff notes, reviews, runbooks, research targets, and human instructions
 - \`logs/audit.jsonl\`: daemon audit records
 - \`runtime/\`: local daemon logs and transient runtime files
 
 Do not store dynamic daemon ports, pids, or base URLs in docs. Discover runtime state through CLI,
 SDK, or the daemon registry.
+Do not store trader preferences or temporary instrument tracking as config unless the human asks
+for a durable config contract. Write them as notes.
 
 ## Credentials
 
@@ -142,11 +141,16 @@ Read workspace and market/account state:
 
 \`\`\`bash
 npm run ${CLI_SCRIPT_NAME} -- state --source agent/state-check
-npm run ${CLI_SCRIPT_NAME} -- watchlist --env sandbox --source agent/watchlist-review
+npm run ${CLI_SCRIPT_NAME} -- instruments --inst-type SPOT --env sandbox --source agent/instrument-scan
 npm run ${CLI_SCRIPT_NAME} -- market ticker --inst-id BTC-USDT --env sandbox --source agent/ticker-check
 npm run ${CLI_SCRIPT_NAME} -- market candles --inst-id BTC-USDT --bar 1m --limit 100 --env sandbox --source agent/candle-check
+npm run ${CLI_SCRIPT_NAME} -- account positions --env sandbox --source agent/position-check
+npm run ${CLI_SCRIPT_NAME} -- account available --env sandbox --source agent/available-check
 npm run ${CLI_SCRIPT_NAME} -- account balance --env sandbox --source agent/balance-check
 npm run ${CLI_SCRIPT_NAME} -- orders open --env sandbox --source agent/order-review
+npm run ${CLI_SCRIPT_NAME} -- orders history --env sandbox --source agent/order-review
+npm run ${CLI_SCRIPT_NAME} -- fills --env sandbox --source agent/fill-review
+npm run ${CLI_SCRIPT_NAME} -- audit recent --limit 20 --env sandbox --source agent/audit-review
 \`\`\`
 
 Trade through CLI when direct intervention is appropriate:
@@ -179,15 +183,22 @@ Main v1 endpoints:
 \`\`\`text
 GET  /v1/health
 GET  /v1/state
-GET  /v1/watchlist
 POST /v1/control/pause
 POST /v1/control/resume
+GET  /v1/instruments
+GET  /v1/instruments/:instId
 GET  /v1/market/ticker?instId=BTC-USDT
 GET  /v1/market/candles?instId=BTC-USDT&bar=1m&limit=100
 GET  /v1/account/balance
+GET  /v1/account/positions
+GET  /v1/account/available
 GET  /v1/orders/open
+GET  /v1/orders/history
+POST /v1/orders/preview
 POST /v1/orders/place
 POST /v1/orders/cancel
+GET  /v1/fills
+GET  /v1/audit/recent
 GET  /v1/events
 \`\`\`
 
@@ -196,7 +207,7 @@ Example raw request:
 \`\`\`bash
 curl -H "x-okx-env: sandbox" \\
   -H "x-okx-source: agent/raw-http-check" \\
-  "http://127.0.0.1:<port>/v1/watchlist"
+  "http://127.0.0.1:<port>/v1/instruments?instType=SPOT&instId=BTC-USDT"
 \`\`\`
 
 Prefer the SDK for scripts because it handles registry discovery and attaches \`env\` and \`source\`
@@ -215,11 +226,17 @@ const okx = await connectOkxDaemon("my-ai-trader", {
   source: "strategies/example.mjs"
 })
 
-const watchlist = await okx.watchlist.list()
+const instruments = await okx.instruments.list({ instType: "SPOT", instId: "BTC-USDT" })
+const instrument = await okx.instruments.get("BTC-USDT")
 const ticker = await okx.market.ticker("BTC-USDT")
 const candles = await okx.market.candles("BTC-USDT", { bar: "1m", limit: 100 })
 const balance = await okx.account.balance()
+const available = await okx.account.available({ ccy: "USDT" })
+const positions = await okx.account.positions()
 const openOrders = await okx.orders.open({ instId: "BTC-USDT" })
+const history = await okx.orders.history({ instId: "BTC-USDT" })
+const fills = await okx.fills.list({ instId: "BTC-USDT" })
+const audit = await okx.audit.recent({ limit: 20 })
 \`\`\`
 
 Trading:
@@ -271,7 +288,7 @@ await okx.events.subscribe((event) => {
 The AI trader should actively build context before writing or changing a strategy. Use available
 tools and sources:
 
-- daemon market data: ticker, candles, account balance, open orders, audit logs
+- daemon market data: instruments, ticker, candles, balances, positions, open orders, fills, audit logs
 - OKX/public exchange information: instrument metadata, funding context, exchange notices, outages
 - market news: major headlines, catalysts, regulation, macro events, token-specific developments
 - sentiment and positioning: funding rates, open interest, liquidation clusters, social/news tone
@@ -295,7 +312,7 @@ strategy runtime. A good script should:
 - live under \`strategies/\` with a descriptive name
 - use one explicit \`source\` label per strategy or experiment
 - start in \`sandbox\` unless live operation is explicitly intended
-- read \`watchlist\`, balances, open orders, and recent market data before acting
+- read instruments, balances, positions, open orders, fills, and recent market data before acting
 - include the indicators, market filters, and entry/exit rules chosen by the AI trader
 - keep its own loop, timers, stop conditions, and optional risk limits
 - write human-readable decisions and observations to \`docs/\` when they matter for handoff
@@ -308,14 +325,14 @@ import { connectOkxDaemon } from "${PACKAGE_NAME}"
 
 const okx = await connectOkxDaemon("my-ai-trader", {
   env: "sandbox",
-  source: "strategies/watchlist-observer.mjs"
+  source: "strategies/instrument-observer.mjs"
 })
 
-const { items } = await okx.watchlist.list()
+const instruments = await okx.instruments.list({ instType: "SPOT", instId: "BTC-USDT" })
 
-for (const item of items.filter((entry) => entry.enabled)) {
-  const ticker = await okx.market.ticker(item.instId)
-  console.log(item.instId, ticker.last)
+for (const instrument of instruments) {
+  const ticker = await okx.market.ticker(instrument.instId)
+  console.log(instrument.instId, ticker.last)
 }
 \`\`\`
 
@@ -337,11 +354,11 @@ while (!stopping) {
   const state = await okx.state()
   if (state.state !== "active") break
 
-  const { items } = await okx.watchlist.list()
-  for (const item of items.filter((entry) => entry.enabled)) {
-    const ticker = await okx.market.ticker(item.instId)
+  const instruments = await okx.instruments.list({ instType: "SPOT", instId: "BTC-USDT" })
+  for (const instrument of instruments) {
+    const ticker = await okx.market.ticker(instrument.instId)
     // Decide, record reasoning when needed, then call orders only if the strategy criteria pass.
-    console.log(new Date().toISOString(), item.instId, ticker.last)
+    console.log(new Date().toISOString(), instrument.instId, ticker.last)
   }
 
   await new Promise((resolve) => setTimeout(resolve, 30_000))
@@ -407,7 +424,7 @@ When handing off to another agent/session, leave notes in workspace docs that in
 
 - strategy file/source name
 - daemon state and environment used
-- watchlist reviewed
+- instruments, balances, positions, orders, fills, and audit window reviewed
 - important audit record ids or time window
 - reason for strategy changes
 - next intended observation or action

@@ -34,25 +34,7 @@ export function normalizeConfig(raw) {
       ...(raw.credentials || {}),
     },
     exchange: raw.exchange || process.env.OKX_DAEMON_EXCHANGE || "okx",
-    watchlist: normalizeWatchlist(raw.watchlist),
   };
-}
-
-export function normalizeWatchlist(watchlist = []) {
-  if (!Array.isArray(watchlist)) return [];
-  return watchlist
-    .map((item) => {
-      if (typeof item === "string") {
-        return { instId: item, enabled: true };
-      }
-      if (!item || typeof item !== "object") return null;
-      return {
-        ...item,
-        instId: item.instId,
-        enabled: item.enabled !== false,
-      };
-    })
-    .filter((item) => typeof item?.instId === "string" && item.instId.length > 0);
 }
 
 export function writeWorkspaceConfig(workspace, raw) {

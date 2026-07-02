@@ -161,6 +161,7 @@ async function handleRequest(ctx) {
   const { request, response, config, exchange, audit, getState, setState, selfPause, emit } = ctx;
   const url = new URL(request.url || "/", "http://127.0.0.1");
   const pathname = url.pathname;
+  const instrumentMatch = pathname.match(/^\/v1\/instruments\/([^/]+)$/);
 
   if (request.method === "GET" && pathname === "/v1/health") {
     return respondJson(response, 200, {
@@ -193,16 +194,6 @@ async function handleRequest(ctx) {
     });
   }
 
-  if (request.method === "GET" && pathname === "/v1/watchlist") {
-    requireContext(context);
-    return audited(ctx, response, {
-      kind: "watchlist.get",
-      context,
-      requestSnapshot: {},
-      operation: async () => ({ items: config.watchlist }),
-    });
-  }
-
   if (request.method === "POST" && pathname === "/v1/control/pause") {
     return audited(ctx, response, {
       kind: "control.pause",
@@ -224,6 +215,29 @@ async function handleRequest(ctx) {
         await setState("active", { reason: body.reason, source: context.source || "cli" });
         return { state: getState() };
       },
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/instruments") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "instruments.list",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.instruments({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && instrumentMatch) {
+    requireContext(context);
+    const instId = decodeURIComponent(instrumentMatch[1]);
+    const instType = url.searchParams.get("instType") || "SPOT";
+    return audited(ctx, response, {
+      kind: "instrument.get",
+      context,
+      requestSnapshot: { instId, instType },
+      operation: () => exchange.instrument({ env: context.env, instType, instId }),
     });
   }
 
@@ -263,6 +277,28 @@ async function handleRequest(ctx) {
     });
   }
 
+  if (request.method === "GET" && pathname === "/v1/account/positions") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "account.positions",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.positions({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/account/available") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "account.available",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.available({ env: context.env, ...query }),
+    });
+  }
+
   if (request.method === "GET" && pathname === "/v1/orders/open") {
     requireContext(context);
     const query = Object.fromEntries(url.searchParams);
@@ -271,6 +307,27 @@ async function handleRequest(ctx) {
       context,
       requestSnapshot: query,
       operation: () => exchange.openOrders({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/orders/history") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "orders.history",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.orderHistory({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/orders/preview") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "order.preview",
+      context,
+      requestSnapshot: body,
+      operation: () => exchange.previewOrder({ env: context.env, ...body }),
     });
   }
 
@@ -293,6 +350,36 @@ async function handleRequest(ctx) {
       requestSnapshot: body,
       operation: () => exchange.cancelOrder({ env: context.env, ...body }),
       eventType: "order.update",
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/fills") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "fills.list",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.fills({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/audit/recent") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "audit.recent",
+      context,
+      requestSnapshot: query,
+      operation: async () => ({
+        records: audit.recent({
+          limit: query.limit,
+          kind: query.kind,
+          source: query.source,
+          env: query.recordEnv,
+        }),
+      }),
+      resultSnapshot: (result) => ({ count: result.records.length }),
     });
   }
 
@@ -324,6 +411,7 @@ async function auditedOperation({
   requestSnapshot,
   operation,
   eventType,
+  resultSnapshot,
 }) {
   const started = Date.now();
   const isWrite = WRITE_KINDS.has(kind);
@@ -356,7 +444,7 @@ async function auditedOperation({
         kind,
         context,
         requestSnapshot,
-        result,
+        result: resultSnapshot ? resultSnapshot(result) : result,
         error: null,
         latencyMs: Date.now() - started,
       }),
@@ -412,15 +500,22 @@ function kindToMethod(kind) {
 function kindToPath(kind) {
   return {
     "state.get": "/v1/state",
-    "watchlist.get": "/v1/watchlist",
     "control.pause": "/v1/control/pause",
     "control.resume": "/v1/control/resume",
+    "instruments.list": "/v1/instruments",
+    "instrument.get": "/v1/instruments/:instId",
     "market.ticker": "/v1/market/ticker",
     "market.candles": "/v1/market/candles",
     "account.balance": "/v1/account/balance",
+    "account.positions": "/v1/account/positions",
+    "account.available": "/v1/account/available",
     "orders.open": "/v1/orders/open",
+    "orders.history": "/v1/orders/history",
+    "order.preview": "/v1/orders/preview",
     "order.place": "/v1/orders/place",
     "order.cancel": "/v1/orders/cancel",
+    "fills.list": "/v1/fills",
+    "audit.recent": "/v1/audit/recent",
   }[kind];
 }
 

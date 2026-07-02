@@ -23,8 +23,10 @@ export class OkxDaemonClient {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     this.timeoutMs = timeoutMs;
 
-    this.watchlist = {
-      list: () => this.request("GET", "/v1/watchlist"),
+    this.instruments = {
+      list: (query = {}) => this.request("GET", "/v1/instruments", { query }),
+      get: (instId, query = {}) =>
+        this.request("GET", `/v1/instruments/${encodeURIComponent(instId)}`, { query }),
     };
     this.market = {
       ticker: (instId) => this.request("GET", "/v1/market/ticker", { query: { instId } }),
@@ -33,9 +35,13 @@ export class OkxDaemonClient {
     };
     this.account = {
       balance: () => this.request("GET", "/v1/account/balance"),
+      positions: (query = {}) => this.request("GET", "/v1/account/positions", { query }),
+      available: (query = {}) => this.request("GET", "/v1/account/available", { query }),
     };
     this.orders = {
       open: (query = {}) => this.request("GET", "/v1/orders/open", { query }),
+      history: (query = {}) => this.request("GET", "/v1/orders/history", { query }),
+      preview: (order) => this.request("POST", "/v1/orders/preview", { body: order }),
       place: (order) => this.request("POST", "/v1/orders/place", { body: order }),
       cancel: (order) => this.request("POST", "/v1/orders/cancel", { body: order }),
       placeMarketBuy: (instId, amount, extra = {}) =>
@@ -46,6 +52,12 @@ export class OkxDaemonClient {
     this.control = {
       pause: (reason = "") => this.request("POST", "/v1/control/pause", { body: { reason } }),
       resume: (reason = "") => this.request("POST", "/v1/control/resume", { body: { reason } }),
+    };
+    this.fills = {
+      list: (query = {}) => this.request("GET", "/v1/fills", { query }),
+    };
+    this.audit = {
+      recent: (query = {}) => this.request("GET", "/v1/audit/recent", { query }),
     };
     this.events = {
       subscribe: (onEvent, options = {}) => this.subscribe(onEvent, options),

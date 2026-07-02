@@ -23,6 +23,26 @@ export class AuditLog {
     fs.appendFileSync(this.filePath, `${JSON.stringify(fullRecord)}\n`);
     return fullRecord;
   }
+
+  recent({ limit = 50, kind, source, env } = {}) {
+    if (!fs.existsSync(this.filePath)) return [];
+    const max = Math.max(1, Math.min(Number(limit) || 50, 500));
+    const lines = fs.readFileSync(this.filePath, "utf8").trim().split(/\r?\n/).filter(Boolean);
+    const records = [];
+    for (let index = lines.length - 1; index >= 0 && records.length < max; index -= 1) {
+      let record;
+      try {
+        record = JSON.parse(lines[index]);
+      } catch {
+        continue;
+      }
+      if (kind && record.kind !== kind) continue;
+      if (source && record.source !== source) continue;
+      if (env && record.env !== env) continue;
+      records.push(record);
+    }
+    return records;
+  }
 }
 
 export function scrub(value) {

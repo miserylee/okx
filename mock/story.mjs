@@ -37,6 +37,20 @@ try {
   assert.match(contextOutput, /npm run okx -- daemon start/);
   runCli(["daemon", "start"]);
 
+  const cliInstruments = runCliJson([
+    "instruments",
+    "--inst-type",
+    "SPOT",
+    "--inst-id",
+    "BTC-USDT",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-instruments",
+  ]);
+  assert.equal(cliInstruments.length, 1);
+  assert.equal(cliInstruments[0].instId, "BTC-USDT");
+
   const cliTicker = runCliJson([
     "market",
     "ticker",
@@ -49,16 +63,6 @@ try {
   ]);
   assert.equal(cliTicker.instId, "BTC-USDT");
 
-  const cliWatchlist = runCliJson([
-    "watchlist",
-    "--env",
-    "sandbox",
-    "--source",
-    "mock/cli-watchlist",
-  ]);
-  assert.equal(cliWatchlist.items.length, 2);
-  assert.equal(cliWatchlist.items[0].instId, "BTC-USDT");
-
   const cliBalance = runCliJson([
     "account",
     "balance",
@@ -68,6 +72,46 @@ try {
     "mock/cli-balance",
   ]);
   assert.ok(cliBalance.details.some((item) => item.ccy === "USDT"));
+
+  const cliPositions = runCliJson([
+    "account",
+    "positions",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-positions",
+  ]);
+  assert.ok(cliPositions.some((item) => item.instId === "BTC-USDT"));
+
+  const cliAvailable = runCliJson([
+    "account",
+    "available",
+    "--ccy",
+    "USDT",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-available",
+  ]);
+  assert.equal(cliAvailable.details[0].ccy, "USDT");
+
+  const cliPreview = runCliJson([
+    "orders",
+    "preview",
+    "--inst-id",
+    "BTC-USDT",
+    "--side",
+    "buy",
+    "--type",
+    "market",
+    "--size",
+    "0.001",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-preview",
+  ]);
+  assert.equal(cliPreview.ok, true);
 
   const cliOrder = runCliJson([
     "orders",
@@ -115,6 +159,18 @@ try {
   ]);
   assert.equal(cliCanceled.state, "canceled");
 
+  const cliHistory = runCliJson([
+    "orders",
+    "history",
+    "--inst-id",
+    "BTC-USDT",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-history",
+  ]);
+  assert.ok(cliHistory.some((item) => item.ordId === cliOrder.ordId));
+
   const okx = await connectOkxDaemon(traderName, {
     env: "sandbox",
     source: "mock/story.mjs",
@@ -130,9 +186,10 @@ try {
   const state = await okx.state();
   assert.equal(state.state, "active");
 
-  const watchlist = await okx.watchlist.list();
-  assert.equal(watchlist.items.length, 2);
-  assert.ok(watchlist.items.every((item) => item.enabled));
+  const instruments = await okx.instruments.list({ instType: "SPOT", instId: "BTC-USDT" });
+  assert.equal(instruments.length, 1);
+  const instrument = await okx.instruments.get("BTC-USDT");
+  assert.equal(instrument.instId, "BTC-USDT");
 
   const ticker = await okx.market.ticker("BTC-USDT");
   assert.equal(ticker.instId, "BTC-USDT");
@@ -143,10 +200,27 @@ try {
   const balance = await okx.account.balance();
   assert.ok(balance.details.some((item) => item.ccy === "USDT"));
 
+  const available = await okx.account.available({ ccy: "USDT" });
+  assert.equal(available.details[0].ccy, "USDT");
+
+  const positions = await okx.account.positions();
+  assert.ok(positions.some((item) => item.instId === "BTC-USDT"));
+
+  const preview = await okx.orders.preview({
+    instId: "BTC-USDT",
+    side: "buy",
+    ordType: "market",
+    sz: "0.001",
+  });
+  assert.equal(preview.ok, true);
+
   const marketOrder = await okx.orders.placeMarketBuy("BTC-USDT", "0.001");
   assert.equal(marketOrder.state, "filled");
 
   await waitFor(() => events.some((event) => event.type === "order.update"));
+
+  const fills = await okx.fills.list({ instId: "BTC-USDT", ordId: marketOrder.ordId });
+  assert.equal(fills.length, 1);
 
   runCli(["daemon", "pause", "--reason", "mock story cli pause"], { silent: true });
   assert.equal((await okx.state()).state, "paused");
@@ -181,6 +255,35 @@ try {
   });
   assert.equal(canceled.state, "canceled");
 
+  const history = await okx.orders.history({ instId: "BTC-USDT" });
+  assert.ok(history.some((item) => item.ordId === limitOrder.ordId));
+
+  const auditRecent = await okx.audit.recent({ limit: 20 });
+  assert.ok(auditRecent.records.length > 0);
+
+  const cliFills = runCliJson([
+    "fills",
+    "--inst-id",
+    "BTC-USDT",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-fills",
+  ]);
+  assert.ok(cliFills.some((item) => item.ordId === marketOrder.ordId));
+
+  const cliAudit = runCliJson([
+    "audit",
+    "recent",
+    "--limit",
+    "20",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-audit",
+  ]);
+  assert.ok(cliAudit.records.length > 0);
+
   controller.abort();
   await eventPump;
 
@@ -188,15 +291,22 @@ try {
   const kinds = auditRecords.map((record) => record.kind);
   for (const required of [
     "state.get",
-    "watchlist.get",
+    "instruments.list",
+    "instrument.get",
     "market.ticker",
     "market.candles",
     "account.balance",
+    "account.positions",
+    "account.available",
+    "order.preview",
     "order.place",
     "control.pause",
     "control.resume",
     "orders.open",
+    "orders.history",
     "order.cancel",
+    "fills.list",
+    "audit.recent",
   ]) {
     assert.ok(kinds.includes(required), `Missing audit kind: ${required}`);
   }
@@ -248,7 +358,6 @@ function configureMockExchange() {
       {
         ...config,
         exchange: "mock",
-        watchlist: ["BTC-USDT", { instId: "ETH-USDT", label: "mock alt" }],
       },
       null,
       2,

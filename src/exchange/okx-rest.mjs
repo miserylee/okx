@@ -31,12 +31,41 @@ export class OkxRestExchange {
     }).then((payload) => payload.data || []);
   }
 
+  async instruments({ env, instType = "SPOT", instId, uly, instFamily } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/public/instruments",
+      query: { instType, instId, uly, instFamily },
+      privateRequest: false,
+    }).then((payload) => payload.data || []);
+  }
+
+  async instrument({ env, instType = "SPOT", instId }) {
+    return this.instruments({ env, instType, instId }).then(
+      (items) => items.find((item) => item.instId === instId) || null,
+    );
+  }
+
   async balance({ env }) {
     return this.okxGet({
       env,
       pathname: "/api/v5/account/balance",
       privateRequest: true,
     }).then((payload) => payload.data?.[0] || null);
+  }
+
+  async available({ env, ccy } = {}) {
+    const balance = await this.balance({ env });
+    return availableFromBalance(balance, { ccy });
+  }
+
+  async positions({ env, instType, instId, posId } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/account/positions",
+      query: { instType, instId, posId },
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
   }
 
   async openOrders({ env, instType = "SPOT", instId } = {}) {
@@ -46,6 +75,38 @@ export class OkxRestExchange {
       query: { instType, instId },
       privateRequest: true,
     }).then((payload) => payload.data || []);
+  }
+
+  async orderHistory({ env, instType = "SPOT", instId, state, after, before, limit } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/trade/orders-history",
+      query: { instType, instId, state, after, before, limit },
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
+  }
+
+  async fills({ env, instType, instId, ordId, after, before, limit } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/trade/fills",
+      query: { instType, instId, ordId, after, before, limit },
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
+  }
+
+  async previewOrder({ env, ...order }) {
+    const body = {
+      tdMode: order.tdMode || "cash",
+      ...order,
+    };
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/order-precheck",
+      body,
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || payload.data || []);
   }
 
   async placeOrder({ env, ...order }) {
@@ -174,4 +235,23 @@ function buildRequestPath(pathname, query = {}) {
 
 function trimTrailingSlash(value) {
   return value.replace(/\/+$/, "");
+}
+
+function availableFromBalance(balance, { ccy } = {}) {
+  const details = (balance?.details || [])
+    .filter((item) => !ccy || item.ccy === ccy)
+    .map((item) => ({
+      ccy: item.ccy,
+      availBal: item.availBal,
+      availEq: item.availEq,
+      cashBal: item.cashBal,
+      eq: item.eq,
+      eqUsd: item.eqUsd,
+      frozenBal: item.frozenBal,
+      ordFrozen: item.ordFrozen,
+    }));
+  return {
+    totalEq: balance?.totalEq ?? null,
+    details,
+  };
 }

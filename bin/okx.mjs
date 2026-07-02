@@ -60,15 +60,15 @@ async function main() {
     return;
   }
 
-  if (command === "watchlist") {
+  if (command === "instruments") {
     const args = [subcommand, ...rest].filter(Boolean);
     const options = parseOptions(args);
     const action = subcommand?.startsWith("-") ? null : subcommand;
     if (subcommand === "--help" || subcommand === "-h" || options.help) {
-      printWatchlistHelp();
+      printInstrumentsHelp();
       return;
     }
-    await watchlistCommand(action, options);
+    await instrumentsCommand(action, options);
     return;
   }
 
@@ -99,6 +99,28 @@ async function main() {
       return;
     }
     await ordersCommand(subcommand, options);
+    return;
+  }
+
+  if (command === "fills") {
+    const args = [subcommand, ...rest].filter(Boolean);
+    const options = parseOptions(args);
+    const action = subcommand?.startsWith("-") ? null : subcommand;
+    if (subcommand === "--help" || subcommand === "-h" || options.help) {
+      printFillsHelp();
+      return;
+    }
+    await fillsCommand(action, options);
+    return;
+  }
+
+  if (command === "audit") {
+    const options = parseOptions(rest);
+    if (!subcommand || subcommand === "--help" || subcommand === "-h" || options.help) {
+      printAuditHelp();
+      return;
+    }
+    await auditCommand(subcommand, options);
     return;
   }
 
@@ -189,20 +211,41 @@ async function stateCommand(options) {
   printJson(payload.data ?? payload);
 }
 
-async function watchlistCommand(subcommand, options) {
-  const action = subcommand || "show";
-  if (action === "show" || action === "list") {
+async function instrumentsCommand(subcommand, options) {
+  const action = subcommand || "list";
+  if (action === "list") {
     const payload = await daemonRequest({
       workspace: options.workspace,
       method: "GET",
-      pathname: "/v1/watchlist",
+      pathname: "/v1/instruments",
+      query: {
+        instType: options.instType || "SPOT",
+        instId: options.instId,
+        uly: options.uly,
+        instFamily: options.instFamily,
+      },
       options,
     });
     printJson(payload.data);
     return;
   }
 
-  throw new Error(`Unknown watchlist subcommand: ${subcommand}`);
+  if (action === "get") {
+    const instId = requireOption(options, "instId", "--inst-id");
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: `/v1/instruments/${encodeURIComponent(instId)}`,
+      query: {
+        instType: options.instType || "SPOT",
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  throw new Error(`Unknown instruments subcommand: ${subcommand}`);
 }
 
 async function marketCommand(subcommand, options) {
@@ -251,6 +294,36 @@ async function accountCommand(subcommand, options) {
     return;
   }
 
+  if (subcommand === "positions") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/account/positions",
+      query: {
+        instType: options.instType,
+        instId: options.instId,
+        posId: options.posId,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "available") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/account/available",
+      query: {
+        ccy: options.ccy,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
   throw new Error(`Unknown account subcommand: ${subcommand}`);
 }
 
@@ -264,6 +337,38 @@ async function ordersCommand(subcommand, options) {
         instId: options.instId,
         instType: options.instType,
       },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "history") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/orders/history",
+      query: {
+        instType: options.instType,
+        instId: options.instId,
+        state: options.state,
+        after: options.after,
+        before: options.before,
+        limit: options.limit,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "preview") {
+    const body = orderPlaceBody(options);
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/preview",
+      body,
       options,
     });
     printJson(payload.data);
@@ -297,6 +402,51 @@ async function ordersCommand(subcommand, options) {
   }
 
   throw new Error(`Unknown orders subcommand: ${subcommand}`);
+}
+
+async function fillsCommand(subcommand, options) {
+  const action = subcommand || "list";
+  if (action === "list") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/fills",
+      query: {
+        instType: options.instType,
+        instId: options.instId,
+        ordId: options.ordId || options.orderId,
+        after: options.after,
+        before: options.before,
+        limit: options.limit,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  throw new Error(`Unknown fills subcommand: ${subcommand}`);
+}
+
+async function auditCommand(subcommand, options) {
+  if (subcommand === "recent") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/audit/recent",
+      query: {
+        limit: options.limit,
+        kind: options.kind,
+        source: options.recordSource,
+        recordEnv: options.recordEnv,
+      },
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  throw new Error(`Unknown audit subcommand: ${subcommand}`);
 }
 
 async function daemonRequest({ workspace, method, pathname, query = {}, body, options = {} }) {
@@ -650,7 +800,6 @@ Commands:
   okx context
   okx init --name <ai-trader-name>
   okx state
-  okx watchlist
   okx daemon start
   okx daemon stop
   okx daemon restart
@@ -658,12 +807,19 @@ Commands:
   okx daemon doctor
   okx daemon pause --reason "..."
   okx daemon resume --reason "..."
+  okx instruments --inst-type SPOT --inst-id BTC-USDT
   okx market ticker --inst-id BTC-USDT
   okx market candles --inst-id BTC-USDT --bar 1m --limit 100
   okx account balance
+  okx account positions
+  okx account available --ccy USDT
   okx orders open
+  okx orders preview --inst-id BTC-USDT --side buy --type market --size 0.001
+  okx orders history --inst-id BTC-USDT
   okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
   okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
+  okx fills --inst-id BTC-USDT
+  okx audit recent --limit 20
 
 Options:
   --workspace <path>  Use a workspace other than the current directory.
@@ -717,18 +873,22 @@ Options:
 `);
 }
 
-function printWatchlistHelp() {
-  console.log(`Read the workspace watchlist through the daemon API
+function printInstrumentsHelp() {
+  console.log(`Read OKX instrument metadata through the daemon API
 
 Usage:
-  okx watchlist [--env sandbox] [--source cli]
-  okx watchlist show [--env sandbox] [--source cli]
-  okx watchlist list [--env sandbox] [--source cli]
+  okx instruments [--inst-type SPOT] [--inst-id BTC-USDT]
+  okx instruments list [--inst-type SPOT] [--inst-id BTC-USDT]
+  okx instruments get --inst-id BTC-USDT [--inst-type SPOT]
 
 Options:
-  --workspace <path>  Workspace directory. Defaults to the current directory.
-  --env <env>         Daemon request environment: sandbox or live. Defaults to sandbox.
-  --source <label>    Audit source label. Defaults to cli.
+  --workspace <path>     Workspace directory. Defaults to the current directory.
+  --env <env>            Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>       Audit source label. Defaults to cli.
+  --inst-type <type>     OKX instrument type. Defaults to SPOT.
+  --inst-id <id>         OKX instrument id, for example BTC-USDT.
+  --uly <uly>            Optional OKX underlying filter.
+  --inst-family <name>   Optional OKX instrument family filter.
 `);
 }
 
@@ -754,11 +914,17 @@ function printAccountHelp() {
 
 Usage:
   okx account balance [--env sandbox] [--source cli]
+  okx account positions [--inst-type SWAP] [--inst-id BTC-USDT-SWAP]
+  okx account available [--ccy USDT]
 
 Options:
   --workspace <path>  Workspace directory. Defaults to the current directory.
   --env <env>         Daemon request environment: sandbox or live. Defaults to sandbox.
   --source <label>    Audit source label. Defaults to cli.
+  --inst-type <type>  Optional OKX instrument type for positions.
+  --inst-id <id>      Optional OKX instrument id for positions.
+  --pos-id <id>       Optional OKX position id.
+  --ccy <ccy>         Optional currency filter for available balances.
 `);
 }
 
@@ -767,6 +933,8 @@ function printOrdersHelp() {
 
 Usage:
   okx orders open [--inst-id BTC-USDT]
+  okx orders history [--inst-id BTC-USDT]
+  okx orders preview --inst-id BTC-USDT --side buy --type market --size 0.001
   okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
   okx orders place --inst-id BTC-USDT --side buy --type limit --size 0.001 --price 100
   okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
@@ -781,8 +949,49 @@ Options:
   --size <amount>          Order size.
   --price <price>          Limit order price.
   --td-mode <mode>         OKX trade mode. Defaults in daemon adapter.
+  --state <state>          Optional history state filter.
+  --after <cursor>         Optional OKX pagination cursor.
+  --before <cursor>        Optional OKX pagination cursor.
+  --limit <count>          Optional OKX result count.
   --ord-id <id>            Exchange order id for cancel.
   --client-order-id <id>   Client order id for place/cancel.
+`);
+}
+
+function printFillsHelp() {
+  console.log(`Read fills through the daemon API
+
+Usage:
+  okx fills [--inst-id BTC-USDT]
+  okx fills list [--inst-id BTC-USDT] [--ord-id <order-id>]
+
+Options:
+  --workspace <path>  Workspace directory. Defaults to the current directory.
+  --env <env>         Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>    Audit source label. Defaults to cli.
+  --inst-type <type>  Optional OKX instrument type.
+  --inst-id <id>      Optional OKX instrument id.
+  --ord-id <id>       Optional order id.
+  --after <cursor>    Optional OKX pagination cursor.
+  --before <cursor>   Optional OKX pagination cursor.
+  --limit <count>     Optional OKX result count.
+`);
+}
+
+function printAuditHelp() {
+  console.log(`Read recent local audit records through the daemon API
+
+Usage:
+  okx audit recent [--limit 20]
+
+Options:
+  --workspace <path>       Workspace directory. Defaults to the current directory.
+  --env <env>              Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>         Audit source label for this audit read. Defaults to cli.
+  --limit <count>          Number of recent records to return. Defaults to 50, max 500.
+  --kind <kind>            Optional audit kind filter.
+  --record-source <label>  Optional source filter for returned records.
+  --record-env <env>       Optional env filter for returned records.
 `);
 }
 

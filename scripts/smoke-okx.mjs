@@ -228,12 +228,6 @@ function loadCredentials(options) {
   return { apiKey, secretKey, passphrase };
 }
 
-function mask(value) {
-  if (!value) return "(missing)";
-  if (value.length <= 8) return "*".repeat(value.length);
-  return `${value.slice(0, 4)}...${value.slice(-4)}`;
-}
-
 function sign({ timestamp, method, requestPath, body = "", secretKey }) {
   return crypto
     .createHmac("sha256", secretKey)
@@ -620,9 +614,7 @@ async function main() {
     }`,
   );
   console.log(`credentialsFile=${path.resolve(options.envPath)}`);
-  console.log(
-    `apiKey=${options.publicOnly ? "(not loaded)" : mask(credentials.apiKey)}`,
-  );
+  console.log(`apiKey=${options.publicOnly ? "(not loaded)" : "(loaded)"}`);
 
   await smokeRestPublic(credentials, options);
   await smokeWsPublic(options);

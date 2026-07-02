@@ -67,6 +67,10 @@ Minimal `okx.config.json`:
 }
 ```
 
+Do not add local config fields for trader preferences, temporary instrument tracking, or research
+targets without explicit user approval. AI traders should keep those materials as notes under
+`docs/` instead.
+
 Optional credential overrides:
 
 ```json
@@ -76,23 +80,6 @@ Optional credential overrides:
     "live": "./credentials.env",
     "sandbox": "./credentials.sandbox.env"
   }
-}
-```
-
-Optional watchlist:
-
-```json
-{
-  "name": "btc-runner-01",
-  "watchlist": [
-    "BTC-USDT",
-    {
-      "instId": "ETH-USDT",
-      "label": "major alt",
-      "note": "observe relative strength",
-      "enabled": true
-    }
-  ]
 }
 ```
 
@@ -127,7 +114,7 @@ Registry schema:
   "port": 43127,
   "baseUrl": "http://127.0.0.1:43127",
   "state": "active",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "startedAt": "2026-07-03T02:16:00+08:00",
   "lastHeartbeat": "2026-07-03T02:16:20+08:00"
 }
@@ -151,11 +138,17 @@ okx daemon doctor
 okx daemon pause --reason "..."
 okx daemon resume --reason "..."
 okx state
-okx watchlist --env sandbox --source cli-check
+okx instruments --inst-type SPOT --inst-id BTC-USDT --env sandbox --source cli-check
 okx market ticker --inst-id BTC-USDT --env sandbox --source cli-check
 okx market candles --inst-id BTC-USDT --bar 1m --limit 100
 okx account balance --env sandbox --source cli-check
+okx account positions --env sandbox --source cli-check
+okx account available --ccy USDT --env sandbox --source cli-check
 okx orders open --env sandbox --source cli-check
+okx orders preview --inst-id BTC-USDT --side buy --type market --size 0.001
+okx orders history --inst-id BTC-USDT --env sandbox --source cli-check
+okx fills --inst-id BTC-USDT --env sandbox --source cli-check
+okx audit recent --limit 20 --env sandbox --source cli-check
 okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
 okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
 ```
@@ -186,18 +179,27 @@ V1 HTTP surface:
 ```text
 GET  /v1/health
 GET  /v1/state
-GET  /v1/watchlist
 POST /v1/control/pause
 POST /v1/control/resume
+
+GET  /v1/instruments?instType=SPOT&instId=BTC-USDT
+GET  /v1/instruments/BTC-USDT?instType=SPOT
 
 GET  /v1/market/ticker?instId=BTC-USDT
 GET  /v1/market/candles?instId=BTC-USDT&bar=1m&limit=100
 
 GET  /v1/account/balance
+GET  /v1/account/positions
+GET  /v1/account/available?ccy=USDT
 
 GET  /v1/orders/open
+GET  /v1/orders/history
+POST /v1/orders/preview
 POST /v1/orders/place
 POST /v1/orders/cancel
+GET  /v1/fills
+
+GET  /v1/audit/recent
 
 GET  /v1/events
 ```
@@ -248,9 +250,17 @@ const okx = await connectOkxDaemon("btc-runner-01", {
   source: "strategies/ma-cross-v1.js"
 })
 
+const instruments = await okx.instruments.list({ instType: "SPOT", instId: "BTC-USDT" })
 const ticker = await okx.market.ticker("BTC-USDT")
-const watchlist = await okx.watchlist.list()
+const positions = await okx.account.positions()
+const available = await okx.account.available({ ccy: "USDT" })
 const balance = await okx.account.balance()
+const preview = await okx.orders.preview({
+  instId: "BTC-USDT",
+  side: "buy",
+  ordType: "market",
+  sz: "0.001"
+})
 await okx.orders.placeMarketBuy("BTC-USDT", "0.001")
 ```
 

@@ -344,7 +344,7 @@
   trading requires explicit `--env live`; agents should pass meaningful `--source` labels.
 - Open questions: none.
 
-## Turn 26 - Watchlist and Richer Agent Context - 2026-07-03 03:48 +08:00
+## Turn 26 - Watchlist and Richer Agent Context, Superseded - 2026-07-03 03:48 +08:00
 
 - User signal: Add an interface for viewing the watchlist, and make `context` detailed enough to
   tell agents how to use the API, CLI, SDK, write scripts, and ask humans for decision guidance.
@@ -352,10 +352,10 @@
   CLI, SDK, mock story, and documentation coverage. Expanded `okx context` into the primary agent
   operating manual rather than a short bootstrap note.
 - Sources: conversation; existing daemon, CLI, SDK, and context implementation.
-- Decisions: Store watchlist in `okx.config.json`; expose it as `GET /v1/watchlist`,
-  `okx watchlist`, and `okx.watchlist.list()`; audit watchlist reads like other daemon operations.
-  Root CLI help should point agents to `okx context` before operating a workspace.
-- Open questions: none.
+- Decisions: This local workspace watchlist design was later rejected in Turn 29. Do not treat
+  `watchlist` as an active local configuration concept.
+- Open questions: whether OKX has an official account self-selected/favorites API remains
+  unimplemented until verified against official docs.
 
 ## Turn 27 - AI Trader Leads the Workflow - 2026-07-03 03:58 +08:00
 
@@ -383,4 +383,30 @@
 - Decisions: Treat credentials plus a running trader workspace as operational authorization for
   autonomous trading within the recorded workspace intent. `--env live` remains an auditable
   technical selector, not a per-trade human approval requirement.
+- Open questions: none.
+
+## Turn 29 - Do Not Invent Local Trading Config - 2026-07-03 04:16 +08:00
+
+- User signal: The watchlist implementation should not have been stored in a local file. The user
+  does not need a local observation pool, and future config additions must be confirmed first.
+- Agent work: Corrected the implementation direction by removing the local `watchlist` config/API
+  concept and continuing only with real daemon/exchange surfaces such as instruments, positions,
+  available balance, order preview, order history, fills, and audit review.
+- Sources: conversation; official OKX v5 docs search did not surface a supported watchlist/favorite
+  trading API.
+- Decisions: Do not add local workspace config fields unless the user explicitly approves them.
+  Do not expose a local concept under the name `watchlist`; if OKX self-selected/favorites support
+  is needed later, verify an official API first.
+- Open questions: none.
+
+## Turn 30 - Track User Preferences as Trader Notes - 2026-07-03 04:20 +08:00
+
+- User signal: If the user has instruments or themes they expect the trader to follow, the agent
+  should write that down as trader notes. It does not need to be a config file.
+- Agent work: Updated context guidance so research targets, temporary instrument tracking, strategy
+  hypotheses, and user preferences belong under workspace docs/notes, not `okx.config.json`.
+- Sources: conversation; `okx context` implementation.
+- Decisions: Configuration remains a stable execution contract. Trader intent, preferences, and
+  observation targets are agent-managed notes unless the user explicitly requests a durable config
+  field.
 - Open questions: none.
