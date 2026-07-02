@@ -362,6 +362,42 @@ async function ordersCommand(subcommand, options) {
     return;
   }
 
+  if (subcommand === "algo-open") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/orders/algo/open",
+      query: orderAlgoQuery(options),
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "algo-history") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/orders/algo/history",
+      query: orderAlgoQuery(options),
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "algo-get") {
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "GET",
+      pathname: "/v1/orders/algo/get",
+      query: orderAlgoIdentity(options),
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
   if (subcommand === "preview") {
     const body = orderPlaceBody(options);
     const payload = await daemonRequest({
@@ -381,6 +417,50 @@ async function ordersCommand(subcommand, options) {
       workspace: options.workspace,
       method: "POST",
       pathname: "/v1/orders/place",
+      body,
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (
+    subcommand === "algo-place" ||
+    subcommand === "take-profit" ||
+    subcommand === "stop-loss" ||
+    subcommand === "tp-sl"
+  ) {
+    const body = orderAlgoPlaceBody(options, subcommand);
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/algo/place",
+      body,
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "algo-amend") {
+    const body = orderAlgoAmendBody(options);
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/algo/amend",
+      body,
+      options,
+    });
+    printJson(payload.data);
+    return;
+  }
+
+  if (subcommand === "algo-cancel") {
+    const body = orderAlgoCancelBody(options);
+    const payload = await daemonRequest({
+      workspace: options.workspace,
+      method: "POST",
+      pathname: "/v1/orders/algo/cancel",
       body,
       options,
     });
@@ -624,7 +704,7 @@ function parseOptions(args) {
     if (arg.startsWith("--")) {
       const [key, inlineValue] = arg.slice(2).split("=", 2);
       let value = inlineValue;
-      if (value == null && args[index + 1] && !args[index + 1].startsWith("-")) {
+      if (value == null && args[index + 1] && shouldConsumeOptionValue(args[index + 1])) {
         value = args[index + 1];
         index += 1;
       }
@@ -633,6 +713,10 @@ function parseOptions(args) {
     }
   }
   return options;
+}
+
+function shouldConsumeOptionValue(value) {
+  return !value.startsWith("-") || /^-\d/.test(value);
 }
 
 function updateGitignore(workspace) {
@@ -707,6 +791,126 @@ function orderCancelBody(options) {
     ...(ordId ? { ordId } : {}),
     ...(clOrdId ? { clOrdId } : {}),
   };
+}
+
+function orderAlgoQuery(options) {
+  return {
+    instType: options.instType,
+    instId: options.instId,
+    ordType: options.ordType || options.type,
+    state: options.state,
+    algoId: options.algoId,
+    algoClOrdId: options.algoClOrdId || options.clientAlgoOrderId,
+    after: options.after,
+    before: options.before,
+    limit: options.limit,
+  };
+}
+
+function orderAlgoIdentity(options) {
+  const instId = requireOption(options, "instId", "--inst-id");
+  const algoId = options.algoId;
+  const algoClOrdId = options.algoClOrdId || options.clientAlgoOrderId;
+  if (!algoId && !algoClOrdId) {
+    throw new Error("orders algo-get requires --algo-id <id> or --client-algo-order-id <id>");
+  }
+  return {
+    instId,
+    ordType: options.ordType || options.type,
+    ...(algoId ? { algoId } : {}),
+    ...(algoClOrdId ? { algoClOrdId } : {}),
+  };
+}
+
+function orderAlgoPlaceBody(options, subcommand = "algo-place") {
+  const instId = requireOption(options, "instId", "--inst-id");
+  const side = requireOption(options, "side", "--side");
+  const sz = options.sz || options.size || options.amount;
+  if (!sz) throw new Error(`${subcommand} requires --size <amount>`);
+
+  const body = {
+    instId,
+    side,
+    ordType: options.ordType || options.type || "conditional",
+    sz,
+  };
+
+  copyOptions(body, options, [
+    "tdMode",
+    "ccy",
+    "posSide",
+    "reduceOnly",
+    "tgtCcy",
+    "algoClOrdId",
+    "tag",
+    "quickMgnType",
+    "stpMode",
+    "triggerPx",
+    "orderPx",
+    "triggerPxType",
+    "tpTriggerPx",
+    "tpOrdPx",
+    "tpTriggerPxType",
+    "slTriggerPx",
+    "slOrdPx",
+    "slTriggerPxType",
+    "callbackRatio",
+    "callbackSpread",
+    "activePx",
+  ]);
+  if (options.clientAlgoOrderId && !body.algoClOrdId) body.algoClOrdId = options.clientAlgoOrderId;
+
+  if (subcommand === "take-profit") {
+    body.tpTriggerPx = options.tpTriggerPx || requireOption(options, "triggerPx", "--trigger-px");
+    body.tpOrdPx = options.tpOrdPx || options.orderPx || "-1";
+    if (options.triggerPxType && !body.tpTriggerPxType) body.tpTriggerPxType = options.triggerPxType;
+  }
+
+  if (subcommand === "stop-loss") {
+    body.slTriggerPx = options.slTriggerPx || requireOption(options, "triggerPx", "--trigger-px");
+    body.slOrdPx = options.slOrdPx || options.orderPx || "-1";
+    if (options.triggerPxType && !body.slTriggerPxType) body.slTriggerPxType = options.triggerPxType;
+  }
+
+  if (subcommand === "tp-sl") {
+    if (!body.tpTriggerPx) throw new Error("orders tp-sl requires --tp-trigger-px <price>");
+    if (!body.slTriggerPx) throw new Error("orders tp-sl requires --sl-trigger-px <price>");
+    body.tpOrdPx = body.tpOrdPx || "-1";
+    body.slOrdPx = body.slOrdPx || "-1";
+  }
+
+  return body;
+}
+
+function orderAlgoAmendBody(options) {
+  const body = orderAlgoIdentity(options);
+  copyOptions(body, options, [
+    "cxlOnFail",
+    "reqId",
+    "newSz",
+    "newTpTriggerPx",
+    "newTpOrdPx",
+    "newTpTriggerPxType",
+    "newSlTriggerPx",
+    "newSlOrdPx",
+    "newSlTriggerPxType",
+    "newTriggerPx",
+    "newOrderPx",
+    "newTriggerPxType",
+  ]);
+  return body;
+}
+
+function orderAlgoCancelBody(options) {
+  return orderAlgoIdentity(options);
+}
+
+function copyOptions(target, source, keys) {
+  for (const key of keys) {
+    if (source[key] != null && source[key] !== true && source[key] !== "") {
+      target[key] = source[key];
+    }
+  }
 }
 
 function requireOption(options, key, label) {
@@ -818,6 +1022,9 @@ Commands:
   okx orders history --inst-id BTC-USDT
   okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
   okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
+  okx orders tp-sl --inst-id BTC-USDT --side sell --size 0.001 --tp-trigger-px 70000 --sl-trigger-px 62000
+  okx orders algo-open --inst-id BTC-USDT
+  okx orders algo-cancel --inst-id BTC-USDT --algo-id <algo-id>
   okx fills --inst-id BTC-USDT
   okx audit recent --limit 20
 
@@ -938,23 +1145,41 @@ Usage:
   okx orders place --inst-id BTC-USDT --side buy --type market --size 0.001
   okx orders place --inst-id BTC-USDT --side buy --type limit --size 0.001 --price 100
   okx orders cancel --inst-id BTC-USDT --ord-id <order-id>
+  okx orders take-profit --inst-id BTC-USDT --side sell --size 0.001 --trigger-px 70000
+  okx orders stop-loss --inst-id BTC-USDT --side sell --size 0.001 --trigger-px 62000
+  okx orders tp-sl --inst-id BTC-USDT --side sell --size 0.001 --tp-trigger-px 70000 --sl-trigger-px 62000
+  okx orders algo-place --inst-id BTC-USDT --side sell --type conditional --size 0.001 --tp-trigger-px 70000 --tp-ord-px -1
+  okx orders algo-open [--inst-id BTC-USDT] [--type conditional]
+  okx orders algo-history [--inst-id BTC-USDT]
+  okx orders algo-get --inst-id BTC-USDT --algo-id <algo-id>
+  okx orders algo-amend --inst-id BTC-USDT --algo-id <algo-id> --new-sl-trigger-px 61000 --new-sl-ord-px -1
+  okx orders algo-cancel --inst-id BTC-USDT --algo-id <algo-id>
 
 Options:
-  --workspace <path>       Workspace directory. Defaults to the current directory.
-  --env <env>              Daemon request environment: sandbox or live. Defaults to sandbox.
-  --source <label>         Audit source label. Defaults to cli.
-  --inst-id <id>           OKX instrument id, for example BTC-USDT.
-  --side <buy|sell>        Order side.
-  --type <market|limit>    Order type. Defaults to market.
-  --size <amount>          Order size.
-  --price <price>          Limit order price.
-  --td-mode <mode>         OKX trade mode. Defaults in daemon adapter.
-  --state <state>          Optional history state filter.
-  --after <cursor>         Optional OKX pagination cursor.
-  --before <cursor>        Optional OKX pagination cursor.
-  --limit <count>          Optional OKX result count.
-  --ord-id <id>            Exchange order id for cancel.
-  --client-order-id <id>   Client order id for place/cancel.
+  --workspace <path>               Workspace directory. Defaults to the current directory.
+  --env <env>                      Daemon request environment: sandbox or live. Defaults to sandbox.
+  --source <label>                 Audit source label. Defaults to cli.
+  --inst-id <id>                   OKX instrument id, for example BTC-USDT.
+  --side <buy|sell>                Order side.
+  --type <type>                    Order type. Regular defaults to market; algo defaults to conditional.
+  --size <amount>                  Order size.
+  --price <price>                  Limit order price.
+  --td-mode <mode>                 OKX trade mode. Defaults in daemon adapter.
+  --tp-trigger-px <price>          Take-profit trigger price for conditional algo orders.
+  --tp-ord-px <price|-1>           Take-profit order price. Use -1 for market.
+  --sl-trigger-px <price>          Stop-loss trigger price for conditional algo orders.
+  --sl-ord-px <price|-1>           Stop-loss order price. Use -1 for market.
+  --trigger-px <price>             Trigger price for take-profit, stop-loss, or trigger algo orders.
+  --order-px <price|-1>            Trigger order execution price. Use -1 for market.
+  --trigger-px-type <last|index|mark>  Trigger price type when required by OKX.
+  --algo-id <id>                   Exchange algo order id for get/amend/cancel.
+  --client-algo-order-id <id>      Client algo order id for place/get/amend/cancel.
+  --state <state>                  Optional history state filter.
+  --after <cursor>                 Optional OKX pagination cursor.
+  --before <cursor>                Optional OKX pagination cursor.
+  --limit <count>                  Optional OKX result count.
+  --ord-id <id>                    Exchange order id for cancel.
+  --client-order-id <id>           Client order id for place/cancel.
 `);
 }
 

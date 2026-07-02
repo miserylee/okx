@@ -156,6 +156,8 @@ npm run ${CLI_SCRIPT_NAME} -- account available --env sandbox --source agent/ava
 npm run ${CLI_SCRIPT_NAME} -- account balance --env sandbox --source agent/balance-check
 npm run ${CLI_SCRIPT_NAME} -- orders open --env sandbox --source agent/order-review
 npm run ${CLI_SCRIPT_NAME} -- orders history --env sandbox --source agent/order-review
+npm run ${CLI_SCRIPT_NAME} -- orders algo-open --env sandbox --source agent/algo-review
+npm run ${CLI_SCRIPT_NAME} -- orders algo-history --env sandbox --source agent/algo-review
 npm run ${CLI_SCRIPT_NAME} -- fills --env sandbox --source agent/fill-review
 npm run ${CLI_SCRIPT_NAME} -- audit recent --limit 20 --env sandbox --source agent/audit-review
 \`\`\`
@@ -166,6 +168,10 @@ Trade through CLI when direct intervention is appropriate:
 npm run ${CLI_SCRIPT_NAME} -- orders place --inst-id BTC-USDT --side buy --type market --size 0.001 --env sandbox --source agent/manual-entry
 npm run ${CLI_SCRIPT_NAME} -- orders place --inst-id BTC-USDT --side buy --type limit --size 0.001 --price 100 --env sandbox --source agent/manual-entry
 npm run ${CLI_SCRIPT_NAME} -- orders cancel --inst-id BTC-USDT --ord-id <order-id> --env sandbox --source agent/manual-cancel
+npm run ${CLI_SCRIPT_NAME} -- orders take-profit --inst-id BTC-USDT --side sell --size 0.001 --trigger-px 70000 --env sandbox --source agent/manual-tp
+npm run ${CLI_SCRIPT_NAME} -- orders stop-loss --inst-id BTC-USDT --side sell --size 0.001 --trigger-px 62000 --env sandbox --source agent/manual-sl
+npm run ${CLI_SCRIPT_NAME} -- orders tp-sl --inst-id BTC-USDT --side sell --size 0.001 --tp-trigger-px 70000 --sl-trigger-px 62000 --env sandbox --source agent/manual-tpsl
+npm run ${CLI_SCRIPT_NAME} -- orders algo-cancel --inst-id BTC-USDT --algo-id <algo-id> --env sandbox --source agent/manual-algo-cancel
 \`\`\`
 
 Use \`--env live\` only after checking current workspace intent, open orders, balances, and recent
@@ -213,6 +219,8 @@ const available = await okx.account.available({ ccy: "USDT" })
 const positions = await okx.account.positions()
 const openOrders = await okx.orders.open({ instId: "BTC-USDT" })
 const history = await okx.orders.history({ instId: "BTC-USDT" })
+const openAlgoOrders = await okx.orders.algo.open({ instId: "BTC-USDT" })
+const algoHistory = await okx.orders.algo.history({ instId: "BTC-USDT" })
 const fills = await okx.fills.list({ instId: "BTC-USDT" })
 const audit = await okx.audit.recent({ limit: 20 })
 \`\`\`
@@ -229,6 +237,23 @@ await okx.orders.place({
   px: "100"
 })
 await okx.orders.cancel({ instId: "BTC-USDT", ordId: "<order-id>" })
+
+const protectiveAlgo = await okx.orders.placeTpSl({
+  instId: "BTC-USDT",
+  side: "sell",
+  sz: "0.001",
+  tpTriggerPx: "70000",
+  slTriggerPx: "62000"
+})
+
+await okx.orders.algo.amend({
+  instId: "BTC-USDT",
+  algoId: protectiveAlgo.algoId,
+  newSlTriggerPx: "61000",
+  newSlOrdPx: "-1"
+})
+
+await okx.orders.algo.cancel({ instId: "BTC-USDT", algoId: protectiveAlgo.algoId })
 \`\`\`
 
 Use two SDK clients if a strategy intentionally touches both sandbox and live:

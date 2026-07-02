@@ -13,7 +13,13 @@ import {
 } from "../lib/paths.mjs";
 import { removeRegistry, writeRegistry } from "../lib/registry.mjs";
 
-const WRITE_KINDS = new Set(["order.place", "order.cancel"]);
+const WRITE_KINDS = new Set([
+  "order.place",
+  "order.cancel",
+  "algo.place",
+  "algo.amend",
+  "algo.cancel",
+]);
 
 export async function runDaemon({ workspace = process.cwd(), host = "127.0.0.1", port = 0 } = {}) {
   const root = resolveWorkspace(workspace);
@@ -321,6 +327,39 @@ async function handleRequest(ctx) {
     });
   }
 
+  if (request.method === "GET" && pathname === "/v1/orders/algo/open") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "algo.open",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.openAlgoOrders({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/orders/algo/history") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "algo.history",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.algoOrderHistory({ env: context.env, ...query }),
+    });
+  }
+
+  if (request.method === "GET" && pathname === "/v1/orders/algo/get") {
+    requireContext(context);
+    const query = Object.fromEntries(url.searchParams);
+    return audited(ctx, response, {
+      kind: "algo.get",
+      context,
+      requestSnapshot: query,
+      operation: () => exchange.getAlgoOrder({ env: context.env, ...query }),
+    });
+  }
+
   if (request.method === "POST" && pathname === "/v1/orders/preview") {
     requireContext(context);
     return audited(ctx, response, {
@@ -349,6 +388,39 @@ async function handleRequest(ctx) {
       context,
       requestSnapshot: body,
       operation: () => exchange.cancelOrder({ env: context.env, ...body }),
+      eventType: "order.update",
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/orders/algo/place") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "algo.place",
+      context,
+      requestSnapshot: body,
+      operation: () => exchange.placeAlgoOrder({ env: context.env, ...body }),
+      eventType: "order.update",
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/orders/algo/amend") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "algo.amend",
+      context,
+      requestSnapshot: body,
+      operation: () => exchange.amendAlgoOrder({ env: context.env, ...body }),
+      eventType: "order.update",
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/v1/orders/algo/cancel") {
+    requireContext(context);
+    return audited(ctx, response, {
+      kind: "algo.cancel",
+      context,
+      requestSnapshot: body,
+      operation: () => exchange.cancelAlgoOrder({ env: context.env, ...body }),
       eventType: "order.update",
     });
   }
@@ -493,7 +565,13 @@ function auditRecord({ kind, context, requestSnapshot, result, error, latencyMs 
 }
 
 function kindToMethod(kind) {
-  if (kind.startsWith("order.") || kind.startsWith("control.")) return "POST";
+  if (
+    kind.startsWith("order.") ||
+    kind.startsWith("control.") ||
+    ["algo.place", "algo.amend", "algo.cancel"].includes(kind)
+  ) {
+    return "POST";
+  }
   return "GET";
 }
 
@@ -514,6 +592,12 @@ function kindToPath(kind) {
     "order.preview": "/v1/orders/preview",
     "order.place": "/v1/orders/place",
     "order.cancel": "/v1/orders/cancel",
+    "algo.open": "/v1/orders/algo/open",
+    "algo.history": "/v1/orders/algo/history",
+    "algo.get": "/v1/orders/algo/get",
+    "algo.place": "/v1/orders/algo/place",
+    "algo.amend": "/v1/orders/algo/amend",
+    "algo.cancel": "/v1/orders/algo/cancel",
     "fills.list": "/v1/fills",
     "audit.recent": "/v1/audit/recent",
   }[kind];

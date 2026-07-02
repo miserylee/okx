@@ -200,6 +200,12 @@ GET  /v1/orders/history
 POST /v1/orders/preview
 POST /v1/orders/place
 POST /v1/orders/cancel
+GET  /v1/orders/algo/open
+GET  /v1/orders/algo/history
+GET  /v1/orders/algo/get
+POST /v1/orders/algo/place
+POST /v1/orders/algo/amend
+POST /v1/orders/algo/cancel
 GET  /v1/fills
 
 GET  /v1/audit/recent
@@ -265,6 +271,13 @@ const preview = await okx.orders.preview({
   sz: "0.001"
 })
 await okx.orders.placeMarketBuy("BTC-USDT", "0.001")
+await okx.orders.placeTpSl({
+  instId: "BTC-USDT",
+  side: "sell",
+  sz: "0.001",
+  tpTriggerPx: "70000",
+  slTriggerPx: "62000"
+})
 ```
 
 If one script needs sandbox and live, it creates two clients:

@@ -171,6 +171,97 @@ try {
   ]);
   assert.ok(cliHistory.some((item) => item.ordId === cliOrder.ordId));
 
+  const cliAlgoOrder = runCliJson([
+    "orders",
+    "tp-sl",
+    "--inst-id",
+    "BTC-USDT",
+    "--side",
+    "sell",
+    "--size",
+    "0.01",
+    "--tp-trigger-px",
+    "70000",
+    "--sl-trigger-px",
+    "62000",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-algo-place",
+  ]);
+  assert.equal(cliAlgoOrder.state, "live");
+  assert.equal(cliAlgoOrder.ordType, "conditional");
+
+  const cliOpenAlgoOrders = runCliJson([
+    "orders",
+    "algo-open",
+    "--inst-id",
+    "BTC-USDT",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-algo-open",
+  ]);
+  assert.ok(cliOpenAlgoOrders.some((item) => item.algoId === cliAlgoOrder.algoId));
+
+  const cliAlgoGet = runCliJson([
+    "orders",
+    "algo-get",
+    "--inst-id",
+    "BTC-USDT",
+    "--algo-id",
+    cliAlgoOrder.algoId,
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-algo-get",
+  ]);
+  assert.equal(cliAlgoGet.algoId, cliAlgoOrder.algoId);
+
+  const cliAlgoAmended = runCliJson([
+    "orders",
+    "algo-amend",
+    "--inst-id",
+    "BTC-USDT",
+    "--algo-id",
+    cliAlgoOrder.algoId,
+    "--new-sl-trigger-px",
+    "61000",
+    "--new-sl-ord-px",
+    "-1",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-algo-amend",
+  ]);
+  assert.equal(cliAlgoAmended.slTriggerPx, "61000");
+
+  const cliAlgoCanceled = runCliJson([
+    "orders",
+    "algo-cancel",
+    "--inst-id",
+    "BTC-USDT",
+    "--algo-id",
+    cliAlgoOrder.algoId,
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-algo-cancel",
+  ]);
+  assert.equal(cliAlgoCanceled[0].state, "canceled");
+
+  const cliAlgoHistory = runCliJson([
+    "orders",
+    "algo-history",
+    "--inst-id",
+    "BTC-USDT",
+    "--env",
+    "sandbox",
+    "--source",
+    "mock/cli-algo-history",
+  ]);
+  assert.ok(cliAlgoHistory.some((item) => item.algoId === cliAlgoOrder.algoId));
+
   const okx = await connectOkxDaemon(traderName, {
     env: "sandbox",
     source: "mock/story.mjs",
@@ -236,6 +327,41 @@ try {
 
   const resumed = await okx.control.resume("mock story resumes trading");
   assert.equal(resumed.state, "active");
+
+  const protectiveAlgo = await okx.orders.placeTpSl({
+    instId: "BTC-USDT",
+    side: "sell",
+    sz: "0.002",
+    tpTriggerPx: "71000",
+    slTriggerPx: "60000",
+  });
+  assert.equal(protectiveAlgo.state, "live");
+
+  const sdkOpenAlgoOrders = await okx.orders.algo.open({ instId: "BTC-USDT" });
+  assert.ok(sdkOpenAlgoOrders.some((item) => item.algoId === protectiveAlgo.algoId));
+
+  const sdkFetchedAlgo = await okx.orders.algo.get({
+    instId: "BTC-USDT",
+    algoId: protectiveAlgo.algoId,
+  });
+  assert.equal(sdkFetchedAlgo.algoId, protectiveAlgo.algoId);
+
+  const sdkAmendedAlgo = await okx.orders.algo.amend({
+    instId: "BTC-USDT",
+    algoId: protectiveAlgo.algoId,
+    newSlTriggerPx: "59000",
+    newSlOrdPx: "-1",
+  });
+  assert.equal(sdkAmendedAlgo.slTriggerPx, "59000");
+
+  const sdkCanceledAlgo = await okx.orders.algo.cancel({
+    instId: "BTC-USDT",
+    algoId: protectiveAlgo.algoId,
+  });
+  assert.equal(sdkCanceledAlgo[0].state, "canceled");
+
+  const sdkAlgoHistory = await okx.orders.algo.history({ instId: "BTC-USDT" });
+  assert.ok(sdkAlgoHistory.some((item) => item.algoId === protectiveAlgo.algoId));
 
   const limitOrder = await okx.orders.place({
     instId: "BTC-USDT",
@@ -305,6 +431,12 @@ try {
     "orders.open",
     "orders.history",
     "order.cancel",
+    "algo.open",
+    "algo.history",
+    "algo.get",
+    "algo.place",
+    "algo.amend",
+    "algo.cancel",
     "fills.list",
     "audit.recent",
   ]) {
@@ -316,6 +448,12 @@ try {
       (record) => record.kind === "order.place" && record.error?.code === "DAEMON_PAUSED",
     ),
     "Missing paused write rejection audit record",
+  );
+  assert.ok(
+    auditRecords.some(
+      (record) => record.kind === "algo.place" && record.error?.code === "DAEMON_PAUSED",
+    ),
+    "Missing paused algo write rejection audit record",
   );
 
   const auditText = fs.readFileSync(auditPath(), "utf8");
@@ -388,6 +526,16 @@ function readAuditRecords() {
 async function assertPausedWrite(okx) {
   await assert.rejects(
     () => okx.orders.placeMarketBuy("BTC-USDT", "0.002"),
+    (error) => error.status === 423 && /paused/i.test(error.message),
+  );
+  await assert.rejects(
+    () =>
+      okx.orders.placeStopLoss({
+        instId: "BTC-USDT",
+        side: "sell",
+        sz: "0.002",
+        triggerPx: "58000",
+      }),
     (error) => error.status === 423 && /paused/i.test(error.message),
   );
 }

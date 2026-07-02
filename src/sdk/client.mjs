@@ -44,9 +44,29 @@ export class OkxDaemonClient {
       preview: (order) => this.request("POST", "/v1/orders/preview", { body: order }),
       place: (order) => this.request("POST", "/v1/orders/place", { body: order }),
       cancel: (order) => this.request("POST", "/v1/orders/cancel", { body: order }),
+      algo: {
+        open: (query = {}) => this.request("GET", "/v1/orders/algo/open", { query }),
+        history: (query = {}) => this.request("GET", "/v1/orders/algo/history", { query }),
+        get: (query = {}) => this.request("GET", "/v1/orders/algo/get", { query }),
+        place: (order) => this.request("POST", "/v1/orders/algo/place", { body: order }),
+        amend: (order) => this.request("POST", "/v1/orders/algo/amend", { body: order }),
+        cancel: (order) => this.request("POST", "/v1/orders/algo/cancel", { body: order }),
+      },
       placeMarketBuy: (instId, amount, extra = {}) =>
         this.request("POST", "/v1/orders/place", {
           body: { instId, side: "buy", ordType: "market", sz: amount, ...extra },
+        }),
+      placeTakeProfit: (order) =>
+        this.request("POST", "/v1/orders/algo/place", {
+          body: buildTakeProfitAlgoOrder(order),
+        }),
+      placeStopLoss: (order) =>
+        this.request("POST", "/v1/orders/algo/place", {
+          body: buildStopLossAlgoOrder(order),
+        }),
+      placeTpSl: (order) =>
+        this.request("POST", "/v1/orders/algo/place", {
+          body: buildTpSlAlgoOrder(order),
         }),
     };
     this.control = {
@@ -153,4 +173,33 @@ function parseSseFrame(frame) {
   }
   if (!data) return null;
   return { type, ...JSON.parse(data) };
+}
+
+function buildTakeProfitAlgoOrder(order = {}) {
+  const { triggerPx, orderPx = "-1", ...rest } = order;
+  return {
+    ...rest,
+    ordType: rest.ordType || "conditional",
+    tpTriggerPx: rest.tpTriggerPx || triggerPx,
+    tpOrdPx: rest.tpOrdPx || orderPx,
+  };
+}
+
+function buildStopLossAlgoOrder(order = {}) {
+  const { triggerPx, orderPx = "-1", ...rest } = order;
+  return {
+    ...rest,
+    ordType: rest.ordType || "conditional",
+    slTriggerPx: rest.slTriggerPx || triggerPx,
+    slOrdPx: rest.slOrdPx || orderPx,
+  };
+}
+
+function buildTpSlAlgoOrder(order = {}) {
+  return {
+    ...order,
+    ordType: order.ordType || "conditional",
+    tpOrdPx: order.tpOrdPx || "-1",
+    slOrdPx: order.slOrdPx || "-1",
+  };
 }

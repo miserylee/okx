@@ -151,10 +151,14 @@ npm run okx -- account balance --env sandbox --source cli-check
 npm run okx -- orders open --env sandbox --source cli-check
 npm run okx -- orders preview --inst-id BTC-USDT --side buy --type market --size 0.001 --env sandbox --source cli-test
 npm run okx -- orders history --inst-id BTC-USDT --env sandbox --source cli-check
+npm run okx -- orders algo-open --inst-id BTC-USDT --env sandbox --source cli-check
+npm run okx -- orders algo-history --inst-id BTC-USDT --env sandbox --source cli-check
 npm run okx -- fills --inst-id BTC-USDT --env sandbox --source cli-check
 npm run okx -- audit recent --limit 20 --env sandbox --source cli-check
 npm run okx -- orders place --inst-id BTC-USDT --side buy --type market --size 0.001 --env sandbox --source cli-test
 npm run okx -- orders cancel --inst-id BTC-USDT --ord-id <order-id> --env sandbox --source cli-test
+npm run okx -- orders tp-sl --inst-id BTC-USDT --side sell --size 0.001 --tp-trigger-px 70000 --sl-trigger-px 62000 --env sandbox --source cli-protect
+npm run okx -- orders algo-cancel --inst-id BTC-USDT --algo-id <algo-id> --env sandbox --source cli-protect
 ```
 
 CLI daemon requests default to `--env sandbox --source cli`. Pass `--env live` explicitly for live

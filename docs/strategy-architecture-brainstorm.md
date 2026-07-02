@@ -434,3 +434,17 @@
 - Decisions: Code/doc changes may be committed and pushed for validation, but npm version bumps and
   npm publishes require explicit user release instruction.
 - Open questions: none.
+
+## Turn 33 - TP/SL Algo Order Capability - 2026-07-03 04:49 +08:00
+
+- User signal: The execution layer should include the missing take-profit and stop-loss order
+  capability, rather than forcing AI trader scripts to bypass the daemon or call OKX directly.
+- Agent work: Added OKX algo order lifecycle support to the exchange adapter, daemon, CLI, SDK, and
+  mock story: place, amend, cancel, get, open, and history. Added CLI convenience commands for
+  `take-profit`, `stop-loss`, and `tp-sl`, plus SDK helpers `placeTakeProfit`, `placeStopLoss`, and
+  `placeTpSl`.
+- Sources: conversation; OKX v5 trade API docs for algo order endpoints.
+- Decisions: TP/SL is modeled as daemon-mediated algo order capability. Strategy scripts should use
+  the Node SDK helpers or `orders.algo.*`; direct OKX API calls remain outside the trader workspace
+  boundary. Algo writes are audited and rejected while the daemon is paused.
+- Open questions: none.

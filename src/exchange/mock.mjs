@@ -1,7 +1,9 @@
 export class MockExchange {
   constructor() {
     this.nextOrderId = 1;
+    this.nextAlgoId = 1;
     this.orders = [];
+    this.algoOrders = [];
     this.fillsLog = [];
     this.instrumentsList = [
       {
@@ -118,6 +120,39 @@ export class MockExchange {
     );
   }
 
+  async openAlgoOrders({ instId, ordType, algoId, algoClOrdId } = {}) {
+    return this.algoOrders.filter(
+      (order) =>
+        order.state === "live" &&
+        (!instId || order.instId === instId) &&
+        (!ordType || order.ordType === ordType) &&
+        (!algoId || order.algoId === algoId) &&
+        (!algoClOrdId || order.algoClOrdId === algoClOrdId),
+    );
+  }
+
+  async algoOrderHistory({ instId, ordType, state, algoId, algoClOrdId } = {}) {
+    return this.algoOrders.filter(
+      (order) =>
+        (!instId || order.instId === instId) &&
+        (!ordType || order.ordType === ordType) &&
+        (!state || order.state === state) &&
+        (!algoId || order.algoId === algoId) &&
+        (!algoClOrdId || order.algoClOrdId === algoClOrdId),
+    );
+  }
+
+  async getAlgoOrder({ instId, algoId, algoClOrdId } = {}) {
+    return (
+      this.algoOrders.find(
+        (order) =>
+          (!instId || order.instId === instId) &&
+          ((algoId && order.algoId === algoId) ||
+            (algoClOrdId && order.algoClOrdId === algoClOrdId)),
+      ) || null
+    );
+  }
+
   async fills({ instId, ordId } = {}) {
     return this.fillsLog.filter(
       (fill) => (!instId || fill.instId === instId) && (!ordId || fill.ordId === ordId),
@@ -187,5 +222,71 @@ export class MockExchange {
     order.state = "canceled";
     order.canceledAt = String(Date.now());
     return order;
+  }
+
+  async placeAlgoOrder(order) {
+    const algoId = String(this.nextAlgoId++);
+    const now = String(Date.now());
+    const created = {
+      ...order,
+      algoId,
+      algoClOrdId: order.algoClOrdId || `mock-algo-${algoId}`,
+      ordType: order.ordType || "conditional",
+      tdMode: order.tdMode || "cash",
+      state: "live",
+      source: "mock",
+      cTime: now,
+      uTime: now,
+    };
+    this.algoOrders.push(created);
+    return created;
+  }
+
+  async amendAlgoOrder(order) {
+    const algo = await this.getAlgoOrder(order);
+    if (!algo) {
+      throw new Error(`Mock algo order not found: ${order.algoId || order.algoClOrdId || "(missing id)"}`);
+    }
+    const updates = {
+      sz: order.newSz || algo.sz,
+      tpTriggerPx: order.newTpTriggerPx || algo.tpTriggerPx,
+      tpOrdPx: order.newTpOrdPx || algo.tpOrdPx,
+      tpTriggerPxType: order.newTpTriggerPxType || algo.tpTriggerPxType,
+      slTriggerPx: order.newSlTriggerPx || algo.slTriggerPx,
+      slOrdPx: order.newSlOrdPx || algo.slOrdPx,
+      slTriggerPxType: order.newSlTriggerPxType || algo.slTriggerPxType,
+      triggerPx: order.newTriggerPx || algo.triggerPx,
+      orderPx: order.newOrderPx || algo.orderPx,
+    };
+    Object.assign(algo, updates, { uTime: String(Date.now()) });
+    return {
+      ...algo,
+      reqId: order.reqId,
+      sCode: "0",
+      sMsg: "",
+    };
+  }
+
+  async cancelAlgoOrder({ orders, ...order }) {
+    const targets = Array.isArray(orders) ? orders : [order];
+    return Promise.all(
+      targets.map(async (target) => {
+        const algo = await this.getAlgoOrder(target);
+        if (!algo) {
+          throw new Error(
+            `Mock algo order not found: ${target.algoId || target.algoClOrdId || "(missing id)"}`,
+          );
+        }
+        algo.state = "canceled";
+        algo.canceledAt = String(Date.now());
+        algo.uTime = algo.canceledAt;
+        return {
+          instId: algo.instId,
+          algoId: algo.algoId,
+          algoClOrdId: algo.algoClOrdId,
+          state: algo.state,
+        };
+      }),
+    );
   }
 }

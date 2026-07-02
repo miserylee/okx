@@ -86,6 +86,54 @@ export class OkxRestExchange {
     }).then((payload) => payload.data || []);
   }
 
+  async openAlgoOrders({
+    env,
+    instType,
+    instId,
+    ordType = "conditional",
+    algoId,
+    algoClOrdId,
+    after,
+    before,
+    limit,
+  } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/trade/orders-algo-pending",
+      query: { instType, instId, ordType, algoId, algoClOrdId, after, before, limit },
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
+  }
+
+  async algoOrderHistory({
+    env,
+    instType,
+    instId,
+    ordType = "conditional",
+    state,
+    algoId,
+    algoClOrdId,
+    after,
+    before,
+    limit,
+  } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/trade/orders-algo-history",
+      query: { instType, instId, ordType, state, algoId, algoClOrdId, after, before, limit },
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
+  }
+
+  async getAlgoOrder({ env, instId, algoId, algoClOrdId, ordType = "conditional" } = {}) {
+    return this.okxGet({
+      env,
+      pathname: "/api/v5/trade/order-algo",
+      query: { instId, algoId, algoClOrdId, ordType },
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || null);
+  }
+
   async fills({ env, instType, instId, ordId, after, before, limit } = {}) {
     return this.okxGet({
       env,
@@ -131,6 +179,41 @@ export class OkxRestExchange {
       body: order,
       privateRequest: true,
     }).then((payload) => payload.data?.[0] || null);
+  }
+
+  async placeAlgoOrder({ env, ...order }) {
+    const body = {
+      tdMode: order.tdMode || "cash",
+      ...order,
+    };
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/order-algo",
+      body,
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || null);
+  }
+
+  async amendAlgoOrder({ env, ...order }) {
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/amend-algos",
+      body: order,
+      privateRequest: true,
+    }).then((payload) => payload.data?.[0] || payload.data || null);
+  }
+
+  async cancelAlgoOrder({ env, orders, ...order }) {
+    const body = Array.isArray(orders) ? orders : [order];
+    return this.okxRequest({
+      env,
+      method: "POST",
+      pathname: "/api/v5/trade/cancel-algos",
+      body,
+      privateRequest: true,
+    }).then((payload) => payload.data || []);
   }
 
   async okxGet(options) {
