@@ -465,3 +465,15 @@
   sizing/cost checks, and event-driven handoff. No npm version is published unless explicitly
   requested.
 - Open questions: none.
+
+## Turn 35 - TypeScript SDK Declarations - 2026-07-03 05:43 +08:00
+
+- User signal: The SDK should provide TypeScript type files.
+- Agent work: Added `src/sdk/client.d.ts` covering `connectOkxDaemon`, `OkxDaemonClient`, SDK
+  namespaces, common request/response shapes, SSE events, private stream status, orders, algo
+  orders, account, market, fills, and audit records. Updated `package.json` with top-level
+  `types` and export-level `types`.
+- Sources: conversation; current SDK implementation.
+- Decisions: Keep runtime JavaScript as ESM `.mjs`, and provide adjacent declaration files for
+  TypeScript/editor support. No npm version is published unless explicitly requested.
+- Open questions: none.

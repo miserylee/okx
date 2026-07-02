@@ -10,6 +10,7 @@ The package includes both:
 
 - CLI bins: `okx` and `okx-trader`
 - Node SDK export: `connectOkxDaemon`
+- TypeScript declarations: `src/sdk/client.d.ts`
 
 Recommended first-run flow for a new AI trader workspace:
 

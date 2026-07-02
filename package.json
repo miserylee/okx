@@ -12,8 +12,13 @@
     "okx-trader": "bin/okx.mjs",
     "okx": "bin/okx.mjs"
   },
+  "types": "./src/sdk/client.d.ts",
   "exports": {
-    ".": "./src/sdk/client.mjs"
+    ".": {
+      "types": "./src/sdk/client.d.ts",
+      "import": "./src/sdk/client.mjs",
+      "default": "./src/sdk/client.mjs"
+    }
   },
   "files": [
     "bin/",
